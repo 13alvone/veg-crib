@@ -1,3 +1,12 @@
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,8 +17,7 @@
     <h1>Add Plant</h1>
     <form action="/add_plant" method="post">
         <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required><br>
-
+        <input type="text" id="name" name="name" pattern="[a-zA-Z0-9]+" required oninvalid="this.setCustomValidity('Only alphanumeric entries are allowed.')" oninput="this.setCustomValidity('')"></br></br>
         <label for="harvest_type">Harvest Type:</label>
         <select id="harvest_type" name="harvest_type">
             <option value="indica">Indica</option>
@@ -30,19 +38,52 @@
         <select id="grow_type" name="grow_type">
             <option value="Standard">Standard</option>
             <option value="Auto">Auto</option>
-        </select><br>
+        </select><br><br>
 
         <label for="thc">THC (%):</label>
-        <input type="number" id="thc" name="thc" step="0.01" min="0" max="100" required><br>
+        <input type="number" id="thc" name="thc" step="0.01" min="0" max="100" value="0" required oninput="validateTHC(this)"></br>
 
         <label for="cbd">CBD (%):</label>
-        <input type="number" id="cbd" name="cbd" step="0.01" min="0" max="100" required><br>
+        <input type="number" id="cbd" name="cbd" step="0.01" min="0" max="100" value="0" required oninput="validateCBD(this)"></br></br>
 
         <label for="birth_date">Birth Date:</label>
-        <input type="date" id="birth_date" name="birth_date" required><br>
+        <input type="date" id="birth_date" name="birth_date" value="{{ today }}" required oninput="validateBirthDate(this)"></br></br>
 
         <input type="submit" value="Add Plant">
     </form>
+
+    <script>
+        function validateTHC(input) {
+            if (input.value < 0 || input.value > 100) {
+                alert("THC percentages must be numeric values between 0 and 100. Please try again.");
+                input.value = 0;
+            }
+        }
+
+        function validateCBD(input) {
+            if (input.value < 0 || input.value > 100) {
+                alert("CBD percentages must be numeric values between 0 and 100. Please try again.");
+                input.value = 0;
+            }
+        }
+
+        function validateBirthDate(input) {
+            const today = new Date();
+            const inputDate = new Date(input.value);
+            const tenYearsAgo = new Date();
+            tenYearsAgo.setFullYear(today.getFullYear() - 10);
+            const oneWeekLater = new Date();
+            oneWeekLater.setDate(today.getDate() + 7);
+
+            if (inputDate < tenYearsAgo) {
+                alert("Dates older than 10 years from today are not applicable. Please try again.");
+                input.value = "";
+            } else if (inputDate > oneWeekLater) {
+                alert("Date planning more than 7 days in the future are generally plans not followed. Please come back closer to the time of birth and try again.");
+                input.value = "";
+            }
+        }
+    </script>
 </body>
 </html>
 

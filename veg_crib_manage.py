@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlite3
 import jsonpickle
 
-next_plant_id = 0
+next_plant_id = 1  # Initialize the ID counter
 completed_dict = {
     'last_updated': 'Unknown',
     'chemicals': {},
@@ -90,6 +90,12 @@ chemicals = {
     },
 }
 
+def generate_new_id():
+    global next_plant_id  # Declare the variable as global so we can modify it
+    new_id = next_plant_id  # Use the current value of next_plant_id as the new ID
+    next_plant_id += 1  # Increment the counter for the next ID
+    return new_id
+
 class Chemical:
     def __init__(self, chemical_name):
         global chemicals
@@ -105,7 +111,8 @@ class Chemical:
 
 class Plant:
     def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date,
-                 harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, id=None):
+             harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, 
+             _container_rxd='3x5', id=None):
         self.id = id if id else generate_new_id()  # Assuming you have a function to generate new IDs
         self.name = name
         self.harvest_type = harvest_type
@@ -120,11 +127,9 @@ class Plant:
         self.mid_cure_date = mid_cure_date
         self.high_cure_date = high_cure_date
         self.age_in_weeks = age_in_weeks
-        self.container = PlantContainer(self, _container_rxd, self.environment)
+        default_container_rxd = "3x5"  # Default container dimensions
+        self.container = PlantContainer(self, default_container_rxd, self.environment)
         self.fully_complete = True
-
-        if _cure != '':
-            self.cure_date = _cure
 
         if not self.environment.add_container(self.container):
             self.fully_complete = False
@@ -239,3 +244,6 @@ class Backend:
             if conn:
                 conn.close()
 
+    def add_plant(self, plant):
+        self.completed_dict['plants'][plant.id] = plant
+        self.update_database()
