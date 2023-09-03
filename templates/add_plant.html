@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Plant</title>
+</head>
+<body>
+    <h1>Add a New Plant</h1>
+    <form action="/add_plant" method="post">
+        <label for="name">Plant Name:</label>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="harvest_type">Harvest Type:</label>
+        <input type="text" id="harvest_type" name="harvest_type" required><br><br>
+
+        <label for="environment">Select Environment:</label>
+        <select id="environment" name="environment">
+            {% for env in environments %}
+                <option value="{{ env }}">{{ env }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <input type="submit" value="Add Plant">
+    </form>
+</body>
+</html>
+
