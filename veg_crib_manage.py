@@ -236,8 +236,18 @@ class Backend:
             cursor.execute("SELECT * FROM completed_dict")
             row = cursor.fetchone()
             self.completed_dict['chemicals'] = jsonpickle.decode(row[1])
-            self.completed_dict['plants'] = jsonpickle.decode(row[2])
+
+
+            if row[2]:
+                try:
+                    self.completed_dict['plants'] = jsonpickle.decode(row[2])
+                except Exception as e:
+                    print(f"Failed to decode plants from database: {e}")
+            else:
+                print("row[2] is empty or None")
+
             self.completed_dict['container_environments'] = jsonpickle.decode(row[3])
+        
         except sqlite3.Error as e:
             print(f"Database error: {e}")
         finally:

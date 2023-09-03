@@ -15,10 +15,6 @@ default_environment = ContainerEnvironment("Default", {'row_count': 5, 'column_c
 def index():
     return render_template('index.html')
 
-@app.route('/home')
-def home():
-    return "Welcome to Veg Crib!"
-
 @app.route('/add_environment', methods=['GET', 'POST'])
 def add_environment():
     if request.method == 'POST':
@@ -111,6 +107,7 @@ def view_environments():
 def view_plants():
     backend.load_from_database()
     plants = backend.completed_dict['plants']
+    print("Debug: Loaded plants:", plants)
     return render_template('view_plants.html', plants=plants)
 
 
