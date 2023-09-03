@@ -20,10 +20,9 @@
                 <th>Harvest Date</th>
                 <th>Bottle Date</th>
                 <th>Cure Date</th>
-                <th>Low Cure Date</th>
-                <th>Mid Cure Date</th>
-                <th>High Cure Date</th>
-                <th>Age in Weeks</th>
+                <th>Cure+ Date</th>
+                <th>Cure++ Date</th>
+                <th>Weeks</th>
                 <th>Container</th>
             </tr>
         </thead>
@@ -35,12 +34,11 @@
                     <td>{{ plant.harvest_type }}</td>
                     <td>{{ plant.environment.name }}</td>
                     <td>{{ plant.grow_type }}</td>
-                    <td>{{ plant.thc_percentage }}</td>
-                    <td>{{ plant.cbd_percentage }}</td>
+                    <td>{{ plant.thc }}</td>
+                    <td>{{ plant.cbd }}</td>
                     <td>{{ plant.birth_date }}</td>
                     <td>{{ plant.harvest_date }}</td>
                     <td>{{ plant.bottle_date }}</td>
-                    <td>{{ plant.cure_date }}</td>
                     <td>{{ plant.low_cure_date }}</td>
                     <td>{{ plant.mid_cure_date }}</td>
                     <td>{{ plant.high_cure_date }}</td>
@@ -50,6 +48,7 @@
             {% endfor %}
         </tbody>
     </table>
+    {% include 'footer.html' %}
 </body>
 </html>
 

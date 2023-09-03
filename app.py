@@ -90,6 +90,7 @@ def add_plant():
                           harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, 
                           age_in_weeks)
         backend.add_plant(new_plant)  # Add the new plant to the backend
+        print("Debug: Plants after adding:", backend.completed_dict['plants'])
         return redirect(url_for('view_plants'))
 
 
@@ -107,7 +108,6 @@ def view_environments():
 def view_plants():
     backend.load_from_database()
     plants = backend.completed_dict['plants']
-    print("Debug: Loaded plants:", plants)
     return render_template('view_plants.html', plants=plants)
 
 
