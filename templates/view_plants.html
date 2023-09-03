@@ -1,11 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>View All Plants</title>
+    <meta charset="UTF-8">
+    <title>View Plants</title>
 </head>
 <body>
-    <h1>View All Plants</h1>
-    <!-- List of plants will go here -->
+    <h1>View Plants</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Harvest Type</th>
+                <th>Environment</th>
+                <th>Grow Type</th>
+                <th>THC %</th>
+                <th>CBD %</th>
+                <th>Birth Date</th>
+                <th>Harvest Date</th>
+                <th>Bottle Date</th>
+                <th>Cure Date</th>
+                <th>Low Cure Date</th>
+                <th>Mid Cure Date</th>
+                <th>High Cure Date</th>
+                <th>Age in Weeks</th>
+                <th>Container</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for id, plant in plants.items() %}
+                <tr>
+                    <td>{{ id }}</td>
+                    <td>{{ plant.name }}</td>
+                    <td>{{ plant.harvest_type }}</td>
+                    <td>{{ plant.environment.name }}</td>
+                    <td>{{ plant.grow_type }}</td>
+                    <td>{{ plant.thc_percentage }}</td>
+                    <td>{{ plant.cbd_percentage }}</td>
+                    <td>{{ plant.birth_date }}</td>
+                    <td>{{ plant.harvest_date }}</td>
+                    <td>{{ plant.bottle_date }}</td>
+                    <td>{{ plant.cure_date }}</td>
+                    <td>{{ plant.low_cure_date }}</td>
+                    <td>{{ plant.mid_cure_date }}</td>
+                    <td>{{ plant.high_cure_date }}</td>
+                    <td>{{ plant.age_in_weeks }}</td>
+                    <td>{{ plant.container.dimensions }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
 

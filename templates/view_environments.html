@@ -1,29 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>View Environments</title>
-</head>
-<body>
-    <h1>Environments</h1>
-    <table>
-        <tr>
-            <th>Name</th>
-            <th>Dimensions</th>
-            <th>Max Size</th>
-            <th>Actions</th>
-        </tr>
-        {% for env in environments %}
-        <tr>
-            <td>{{ env.name }}</td>
-            <td>{{ env.dimensions['row_count'] }} x {{ env.dimensions['column_count'] }}</td>
-            <td>{{ env.max_size }}</td>
-            <td>
-                <a href="{{ url_for('delete_environment', id=env.id) }}">Delete</a>
-                <a href="{{ url_for('move_plant', id=env.id) }}">Move Plant</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
-</body>
-</html>
+{% for name, env in environments.items() %}
+    <tr>
+        <td>{{ name }}</td>
+        <td>{{ env.dimensions['row_count'] }} x {{ env.dimensions['column_count'] }}</td>
+    </tr>
+{% endfor %}
 

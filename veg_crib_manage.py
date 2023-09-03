@@ -104,23 +104,22 @@ class Chemical:
         return self.description
 
 class Plant:
-    def __init__(self, _name, _harvest_type, _environment, _id, _grow_type='standard', _thc_percentage=0, _cure='',
-                 _cbd_percentage=0, _birth_date=datetime.date.today(), _container_rxd='12x14'):
-        self.id = _id
-        self.name = f'{_name}'
-        self.harvest_type = _harvest_type
-        self.environment = _environment
-        self.grow_type = _grow_type
-        self.thc_percentage = _thc_percentage
-        self.cbd_percentage = _cbd_percentage
-        self.birth_date = f'{_birth_date}'
-        self.harvest_date = f'{(_birth_date + datetime.timedelta(days=112)).strftime("%x")}'
-        self.bottle_date = f'{(_birth_date + datetime.timedelta(days=119)).strftime("%x")}'
-        self.low_cure_date = f'{(_birth_date + datetime.timedelta(days=140)).strftime("%x")}'
-        self.mid_cure_date = f'{(_birth_date + datetime.timedelta(days=168)).strftime("%x")}'
-        self.high_cure_date = f'{(_birth_date + datetime.timedelta(days=196)).strftime("%x")}'
-        self.cure_date = self.low_cure_date
-        self.age_in_weeks = self.calculate_week_count()
+    def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date,
+                 harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, id=None):
+        self.id = id if id else generate_new_id()  # Assuming you have a function to generate new IDs
+        self.name = name
+        self.harvest_type = harvest_type
+        self.environment = environment
+        self.grow_type = grow_type
+        self.thc = thc
+        self.cbd = cbd
+        self.birth_date = birth_date
+        self.harvest_date = harvest_date
+        self.bottle_date = bottle_date
+        self.low_cure_date = low_cure_date
+        self.mid_cure_date = mid_cure_date
+        self.high_cure_date = high_cure_date
+        self.age_in_weeks = age_in_weeks
         self.container = PlantContainer(self, _container_rxd, self.environment)
         self.fully_complete = True
 

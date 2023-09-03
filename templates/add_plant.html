@@ -1,23 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Add Plant</title>
 </head>
 <body>
-    <h1>Add a New Plant</h1>
+    <h1>Add Plant</h1>
     <form action="/add_plant" method="post">
-        <label for="name">Plant Name:</label>
-        <input type="text" id="name" name="name" required><br><br>
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required><br>
 
         <label for="harvest_type">Harvest Type:</label>
-        <input type="text" id="harvest_type" name="harvest_type" required><br><br>
+        <select id="harvest_type" name="harvest_type">
+            <option value="indica">Indica</option>
+            <option value="sativa">Sativa</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="hybrid:indica">Hybrid: Indica</option>
+            <option value="hybrid:sativa">Hybrid: Sativa</option>
+        </select><br>
 
-        <label for="environment">Select Environment:</label>
+        <label for="environment">Environment:</label>
         <select id="environment" name="environment">
-            {% for env in environments %}
-                <option value="{{ env }}">{{ env }}</option>
+            {% for env_name in environments %}
+                <option value="{{ env_name }}">{{ env_name }}</option>
             {% endfor %}
-        </select><br><br>
+        </select><br>
+
+        <label for="grow_type">Grow Type:</label>
+        <select id="grow_type" name="grow_type">
+            <option value="Standard">Standard</option>
+            <option value="Auto">Auto</option>
+        </select><br>
+
+        <label for="thc">THC (%):</label>
+        <input type="number" id="thc" name="thc" step="0.01" min="0" max="100" required><br>
+
+        <label for="cbd">CBD (%):</label>
+        <input type="number" id="cbd" name="cbd" step="0.01" min="0" max="100" required><br>
+
+        <label for="birth_date">Birth Date:</label>
+        <input type="date" id="birth_date" name="birth_date" required><br>
 
         <input type="submit" value="Add Plant">
     </form>
