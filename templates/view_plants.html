@@ -44,6 +44,18 @@
                     <td>{{ plant.high_cure_date }}</td>
                     <td>{{ plant.age_in_weeks }}</td>
                     <td>{{ plant.container.dimensions }}</td>
+
+                    <td>
+                        <!-- Move button -->
+                        <form action="{{ url_for('move_plant', plant_id=plant.id) }}" method="get" style="display: inline;">
+                            <button type="submit">Move</button>
+                        </form>
+                        <!-- Delete button -->
+                        <form action="{{ url_for('delete_plant', plant_id=plant.id) }}" method="post" style="display: inline;">
+                            <button type="submit">Delete</button>
+                        </form>
+                    </td>
+
                 </tr>
             {% endfor %}
         </tbody>

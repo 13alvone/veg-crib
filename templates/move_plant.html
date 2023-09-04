@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Move Plant</title>
+</head>
+<body>
+    <h1>Move Plant</h1>
+    <form action="{{ url_for('move_plant', plant_id=plant_id) }}" method="post">
+        <label for="new_container_id">Select New Container:</label>
+        <select name="new_container_id" id="new_container_id">
+            {% for container_id in available_containers %}
+                <option value="{{ container_id }}">{{ container_id }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="Move">
+    </form>
+    <a href="{{ url_for('view_plants') }}">Back to Plants</a>
+</body>
+</html>
+{% include 'footer.html' %}

@@ -1,7 +1,39 @@
-{% for name, env in environments.items() %}
-    <tr>
-        <td>{{ name }}</td>
-        <td>{{ env.dimensions['row_count'] }} x {{ env.dimensions['column_count'] }}</td>
-    </tr>
-{% endfor %}
-{% include 'footer.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Environments</title>
+</head>
+<body>
+    <h1>View Environments</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Max Size</th>
+                <th>Rows</th>
+                <th>Columns</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for name, env in environments.items() %}
+                <tr>
+                    <td>{{ name }}</td>
+                    <td>{{ max_size }}</td>
+                    <td>{{ env.dimensions['row_count'] }}</td>
+                    <td>{{ env.dimensions['column_count'] }}</td>
+
+                    <td>
+                        <!-- Delete button -->
+                        <form action="{{ url_for('delete_environment', container_id=env.name) }}" method="post" style="display: inline;">
+                            <button type="submit">Delete</button>
+                        </form>
+                    </td>
+
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% include 'footer.html' %}
+</body>
+</html>

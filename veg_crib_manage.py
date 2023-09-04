@@ -1,9 +1,4 @@
-import os
-import re
-import json
-import time
 import datetime
-from pathlib import Path
 import sqlite3
 import jsonpickle
 
@@ -90,11 +85,13 @@ chemicals = {
     },
 }
 
+
 def generate_new_id():
     global next_plant_id  # Declare the variable as global so we can modify it
     new_id = next_plant_id  # Use the current value of next_plant_id as the new ID
     next_plant_id += 1  # Increment the counter for the next ID
     return new_id
+
 
 class Chemical:
     def __init__(self, chemical_name):
@@ -108,6 +105,7 @@ class Chemical:
         global chemicals
         valid_chemicals = chemicals.keys()
         return self.description
+
 
 class Plant:
     def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date,
@@ -135,8 +133,8 @@ class Plant:
             self.fully_complete = False
             return
 
-    def update_plant_cure(self, _new_cure):
-        self.cure_date = f'{_new_cure}'
+    # def update_plant_cure(self, _new_cure):
+    #     self.cure_date = f'{_new_cure}'
 
     def calculate_week_count(self):
         today = datetime.date.today()
@@ -145,6 +143,7 @@ class Plant:
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
 
+
 class PlantContainer:
     def __init__(self, _plant, _container_rxd, _environment):
         self.plant = _plant
@@ -152,11 +151,12 @@ class PlantContainer:
         self.id = self.plant.id
         self.environment = _environment
 
+
 class ContainerEnvironment:
     def __init__(self, _environment_name, _dimensions):
         self.dimensions = _dimensions
         self.grid = self.create_grid_matrix()
-        self.name = _environment_name
+        self.name = _environment_name.strip().replace(" ", "_")
         self.max_size = _dimensions['row_count'] * _dimensions['column_count']
 
     def create_grid_matrix(self):
@@ -182,6 +182,26 @@ class ContainerEnvironment:
                     self.grid[position] = None
                     return True
         return False
+
+    def remove_container_by_id(self, container_id):
+        for position, container in self.grid.items():
+            if container and container.id == container_id:
+                self.grid[position] = None
+                return True
+        return False
+
+    def move_container(self, container, new_position):
+        if new_position not in self.grid:
+            return False  # Invalid position
+        if self.grid[new_position] is not None:
+            return False  # Position already occupied
+        for position, existing_container in self.grid.items():
+            if existing_container and existing_container.id == container.id:
+                self.grid[position] = None  # Remove from old position
+                self.grid[new_position] = container  # Place in new position
+                return True
+        return False  # Container not found
+
 
 class Backend:
     def __init__(self, run_test_model=False, db_path="database/veg_crib.db"):
@@ -237,7 +257,6 @@ class Backend:
             row = cursor.fetchone()
             self.completed_dict['chemicals'] = jsonpickle.decode(row[1])
 
-
             if row[2]:
                 try:
                     self.completed_dict['plants'] = jsonpickle.decode(row[2])
@@ -257,3 +276,35 @@ class Backend:
     def add_plant(self, plant):
         self.completed_dict['plants'][plant.id] = plant
         self.update_database()
+
+    def delete_plant(self, plant_id):
+        if plant_id in self.completed_dict['plants']:
+            del self.completed_dict['plants'][plant_id]
+            self.update_database()
+            return True
+        return False
+
+    def delete_container_environment(self, container_name):
+        container_env = self.completed_dict['container_environments'].get(container_name, None)
+        if container_env:
+            # Check if all grid positions are empty (None)
+            if all(v is None for v in container_env.grid.values()):
+                del self.completed_dict['container_environments'][container_name]
+                self.update_database()
+                return True
+            else:
+                print("Cannot delete environment: Grid is not empty. Please move or delete plant(s) first.")
+                return False
+        return False
+
+    def move_plant(self, plant_id, new_container_id):
+        plant = self.completed_dict['plants'].get(plant_id)
+        new_container = self.completed_dict['container_environments'].get(new_container_id)
+        if plant and new_container:
+            plant.update_environment(new_container)
+            self.update_database()
+            return True
+        return False
+
+    def get_available_containers(self):
+        return list(self.completed_dict['container_environments'].keys())

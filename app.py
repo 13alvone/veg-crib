@@ -5,11 +5,11 @@ import math
 from veg_crib_manage import Backend, Chemical, ContainerEnvironment, Plant, PlantContainer
 
 app = Flask(__name__)
-app.secret_key = 'some_secret_key'  # Required for flash to work
+app.secret_key = 'F2419C26-71EF-495E-ACCE-A5C615C675B2@@C4BD86FF-D8B4-4955-9D4C-68D70FBF4A23'  # Required for flash
 backend = Backend()
 
 # Create a default environment for demonstration purposes
-default_environment = ContainerEnvironment("Default", {'row_count': 5, 'column_count': 5})
+# default_environment = ContainerEnvironment("Default", {'row_count': 5, 'column_count': 5})
 
 @app.route('/')
 def index():
@@ -109,6 +109,38 @@ def view_plants():
     backend.load_from_database()
     plants = backend.completed_dict['plants']
     return render_template('view_plants.html', plants=plants)
+
+@app.route('/delete_plant/<plant_id>', methods=['POST'])
+def delete_plant(plant_id):
+    backend.load_from_database()
+    if backend.delete_plant(plant_id):
+        flash('Plant deleted successfully.')
+    else:
+        flash('Failed to delete plant.')
+    return redirect(url_for('view_plants'))
+
+@app.route('/delete_environment/<environment_name>', methods=['POST'])
+def delete_container_environment(environment_name):
+    backend.load_from_database()
+    if backend.delete_container_environment(environment_name):
+        flash('Container deleted successfully.')
+    else:
+        flash('Failed to delete container.')
+    return redirect(url_for('view_environments'))
+
+@app.route('/move_plant/<plant_id>', methods=['GET', 'POST'])
+def move_plant(plant_id):
+    backend.load_from_database()
+    if request.method == 'POST':
+        new_container_id = request.form['new_container_id']
+        if backend.move_plant(plant_id, new_container_id):
+            flash('Plant moved successfully.')
+        else:
+            flash('Failed to move plant.')
+        return redirect(url_for('index'))
+    # For GET request, show the form to select a new container
+    available_containers = backend.get_available_containers()
+    return render_template('move_plant.html', available_containers=available_containers)
 
 
 if __name__ == '__main__':
