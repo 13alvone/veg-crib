@@ -2,21 +2,24 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from datetime import datetime, timedelta
 import math
 
-from veg_crib_manage import Backend, Chemical, ContainerEnvironment, Plant, PlantContainer
+from veg_crib_manage import Backend, ContainerEnvironment, Plant
 
 app = Flask(__name__)
 app.secret_key = 'F2419C26-71EF-495E-ACCE-A5C615C675B2@@C4BD86FF-D8B4-4955-9D4C-68D70FBF4A23'  # Required for flash
 backend = Backend()
 
-# Create a default environment for demonstration purposes
-# default_environment = ContainerEnvironment("Default", {'row_count': 5, 'column_count': 5})
 
 @app.route('/')
 def index():
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     return render_template('index.html')
+
 
 @app.route('/add_environment', methods=['GET', 'POST'])
 def add_environment():
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     if request.method == 'POST':
         x_dim = int(request.form['x_dim'])
         y_dim = int(request.form['y_dim'])
@@ -27,8 +30,11 @@ def add_environment():
         return redirect(url_for('index'))
     return render_template('add_environment.html')
 
+
 @app.route('/add_plant', methods=['GET', 'POST'])
 def add_plant():
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     today = datetime.now().strftime('%Y-%m-%d')  # Get today's date in YYYY-MM-DD format
     if request.method == 'POST':
@@ -98,20 +104,29 @@ def add_plant():
     environments = list(backend.completed_dict['container_environments'].keys())
     return render_template('add_plant.html', environments=environments)
 
+
 @app.route('/view_environments')
 def view_environments():
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     environments = backend.completed_dict['container_environments']
     return render_template('view_environments.html', environments=environments)
 
+
 @app.route('/view_plants')
 def view_plants():
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     plants = backend.completed_dict['plants']
     return render_template('view_plants.html', plants=plants)
 
+
 @app.route('/delete_plant/<plant_id>', methods=['POST'])
 def delete_plant(plant_id):
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     if backend.delete_plant(plant_id):
         flash('Plant deleted successfully.')
@@ -119,8 +134,11 @@ def delete_plant(plant_id):
         flash('Failed to delete plant.')
     return redirect(url_for('view_plants'))
 
+
 @app.route('/delete_environment/<environment_name>', methods=['POST'])
 def delete_container_environment(environment_name):
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     if backend.delete_container_environment(environment_name):
         flash('Container deleted successfully.')
@@ -128,21 +146,25 @@ def delete_container_environment(environment_name):
         flash('Failed to delete container.')
     return redirect(url_for('view_environments'))
 
+
 @app.route('/move_plant/<plant_id>', methods=['GET', 'POST'])
 def move_plant(plant_id):
+    # Clear any existing flash messages
+    session.pop('_flashes', None)
     backend.load_from_database()
     if request.method == 'POST':
         new_container_id = request.form['new_container_id']
         if backend.move_plant(plant_id, new_container_id):
             flash('Plant moved successfully.')
+            print('[!] Debug: Plant Moved Successfully.')
         else:
             flash('Failed to move plant.')
         return redirect(url_for('view_plants'))
     # For GET request, show the form to select a new container
     available_containers = backend.get_available_containers()
-    return render_template('move_plant.html', available_containers=available_containers)
+    print("Debug: Plant ID is", plant_id)
+    return render_template(f'move_plant.html', available_containers=available_containers, plant_id=plant_id)
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-

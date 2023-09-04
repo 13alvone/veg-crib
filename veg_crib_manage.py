@@ -1,6 +1,7 @@
 import datetime
 import sqlite3
 import jsonpickle
+import copy
 
 next_plant_id = 1  # Initialize the ID counter
 completed_dict = {
@@ -133,9 +134,6 @@ class Plant:
             self.fully_complete = False
             return
 
-    # def update_plant_cure(self, _new_cure):
-    #     self.cure_date = f'{_new_cure}'
-
     def calculate_week_count(self):
         today = datetime.date.today()
         return abs(today - datetime.datetime.strptime(self.birth_date, '%Y-%m-%d').date()).days // 7
@@ -156,7 +154,7 @@ class ContainerEnvironment:
     def __init__(self, _environment_name, _dimensions):
         self.dimensions = _dimensions
         self.grid = self.create_grid_matrix()
-        self.name = _environment_name.strip().replace(" ", "_")
+        self.name = "_".join([x.capitalize() for x in _environment_name.strip().split(" ")])
         self.max_size = _dimensions['row_count'] * _dimensions['column_count']
 
     def create_grid_matrix(self):
@@ -168,25 +166,19 @@ class ContainerEnvironment:
                 output_grid[f'{row}x{column}'] = None
         return output_grid
 
-    def add_container(self, _container_obj):
+    def add_container(self, _plant):
         for position in self.grid:
             if not self.grid[position]:
-                self.grid[position] = _container_obj
+                self.grid[position] = _plant
+                _plant.environment = self
                 return True
         return False
 
-    def remove_container(self, _container_obj):
-        for position in self.grid:
-            if self.grid[position]:
-                if self.grid[position].plant.name == _container_obj.plant.name:
-                    self.grid[position] = None
-                    return True
-        return False
-
-    def remove_container_by_id(self, container_id):
+    def remove_container_by_id(self, _plant):
         for position, container in self.grid.items():
-            if container and container.id == container_id:
+            if container and container.id == _plant.id:
                 self.grid[position] = None
+                _plant.environment = None
                 return True
         return False
 
@@ -201,6 +193,9 @@ class ContainerEnvironment:
                 self.grid[new_position] = container  # Place in new position
                 return True
         return False  # Container not found
+
+    def is_grid_empty(self):  # Return True if Empty, False Else
+        return all(value is None for value in self.grid.values())
 
 
 class Backend:
@@ -275,12 +270,12 @@ class Backend:
 
     def add_plant(self, plant):
         self.completed_dict['plants'][plant.id] = plant
-        self.update_database()
+        self.sync_completed_dict()
 
     def delete_plant(self, plant_id):
         if plant_id in self.completed_dict['plants']:
             del self.completed_dict['plants'][plant_id]
-            self.update_database()
+            self.sync_completed_dict()
             return True
         return False
 
@@ -288,23 +283,70 @@ class Backend:
         container_env = self.completed_dict['container_environments'].get(container_name, None)
         if container_env:
             # Check if all grid positions are empty (None)
-            if all(v is None for v in container_env.grid.values()):
+            if container_env.is_grid_empty():
                 del self.completed_dict['container_environments'][container_name]
-                self.update_database()
+                self.sync_completed_dict()
                 return True
             else:
                 print("Cannot delete environment: Grid is not empty. Please move or delete plant(s) first.")
                 return False
         return False
 
-    def move_plant(self, plant_id, new_container_id):
+    def move_plant(self, plant_id, new_container_env_name):
         plant = self.completed_dict['plants'].get(plant_id)
-        new_container = self.completed_dict['container_environments'].get(new_container_id)
-        if plant and new_container:
-            plant.update_environment(new_container)
-            self.update_database()
-            return True
-        return False
+        new_container_environment = self.completed_dict['container_environments'].get(new_container_env_name)
+        if plant and new_container_environment:
+            # Get the old environment
+            old_container_environment = plant.environment
+
+            # Remove the plant's container from the old environment's grid
+            if old_container_environment.remove_container_by_id(plant):
+                self.completed_dict['plants'][plant_id][]
+                self.sync_completed_dict()
+                # Try to add the plant's container to the new environment's grid
+                if new_container_environment.add_container(plant):
+
+                    self.sync_completed_dict()
+                    # Update the plant's environment
+                    plant.update_environment(new_container_environment)
+                    # Update the database
+                    self.sync_completed_dict()
+                    return True
+                else:
+                    self.sync_completed_dict()
+                    # If adding to the new environment fails, add it back to the old environment
+                    old_container_environment.add_container(plant.container)
+                    return False
+            else:
+                self.sync_completed_dict()
+                return False  # Failed to remove from old environment
+        return False  # Plant or new environment not found
 
     def get_available_containers(self):
         return list(self.completed_dict['container_environments'].keys())
+
+    def sync_completed_dict(self):
+        # Initialize empty dictionaries for plants and container_environments
+        synced_plants = {}
+        synced_container_environments = {}
+
+        # Sync chemicals: Assuming chemicals are always fully initialized, we can directly assign them
+        synced_chemicals = copy.deepcopy(chemicals)
+
+        # Sync plants
+        for plant_id, plant_obj in self.completed_dict['plants'].items():
+            if plant_obj.fully_complete:  # Check if the plant object is fully initialized
+                synced_plants[plant_id] = plant_obj
+
+        # Sync container environments
+        for env_name, env_obj in self.completed_dict['container_environments'].items():
+            # You can add additional checks here if needed
+            synced_container_environments[env_name] = env_obj
+
+        # Update completed_dict
+        self.completed_dict['chemicals'] = synced_chemicals
+        self.completed_dict['plants'] = synced_plants
+        self.completed_dict['container_environments'] = synced_container_environments
+
+        # Update the database
+        self.update_database()
