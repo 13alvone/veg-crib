@@ -19,13 +19,12 @@
             {% for name, env in environments.items() %}
                 <tr>
                     <td>{{ name }}</td>
-                    <td>{{ max_size }}</td>
+                    <td>{{ env.max_size }}</td>
                     <td>{{ env.dimensions['row_count'] }}</td>
                     <td>{{ env.dimensions['column_count'] }}</td>
-
                     <td>
                         <!-- Delete button -->
-                        <form action="{{ url_for('delete_environment', container_id=env.name) }}" method="post" style="display: inline;">
+                        <form action="{{ url_for('delete_container_environment', environment_name=name) }}" method="post" style="display: inline;">
                             <button type="submit">Delete</button>
                         </form>
                     </td>

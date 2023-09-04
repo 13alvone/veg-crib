@@ -137,7 +137,7 @@ def move_plant(plant_id):
             flash('Plant moved successfully.')
         else:
             flash('Failed to move plant.')
-        return redirect(url_for('index'))
+        return redirect(url_for('view_plants'))
     # For GET request, show the form to select a new container
     available_containers = backend.get_available_containers()
     return render_template('move_plant.html', available_containers=available_containers)
