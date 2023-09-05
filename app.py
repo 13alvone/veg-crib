@@ -165,6 +165,12 @@ def move_plant(plant_id):
     print("Debug: Plant ID is", plant_id)
     return render_template(f'move_plant.html', available_containers=available_containers, plant_id=plant_id)
 
+@app.route('/chemical_schedule')
+def chemical_schedule():
+    backend.load_from_database()
+    current_week_schedule = backend.get_current_week_chemical_schedule()
+    return render_template('chemical_schedule.html', current_week_schedule=current_week_schedule)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

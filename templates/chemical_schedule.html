@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chemical Schedule</title>
+</head>
+<body>
+    <h1>Current Week's Chemical Schedule</h1>
+    <table border="1">
+        <tr>
+            <th>Plant Name</th>
+            <th>Current Week</th>
+            <th>Environment</th>
+            <th>Chemicals (Per Gallon)</th>
+        </tr>
+        {% for plant_id, data in current_week_schedule.items() %}
+            <tr>
+                <td>{{ plant_id }}</td>
+                <td>{{ data.week }}</td>
+                <td>{{ data.environment }}</td>
+                <td>
+                    {% for chemical, ml in data.chemicals.items() %}
+                        {{ chemical }}: {{ ml }}ml<br>
+                    {% endfor %}
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

@@ -1,7 +1,6 @@
 import datetime
 import sqlite3
 import jsonpickle
-import copy
 
 next_plant_id = 1  # Initialize the ID counter
 completed_dict = {
@@ -140,6 +139,17 @@ class Plant:
 
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
+
+    def get_chemical_schedule_for_week(self, week_number):
+        global chemicals  # Access the global chemicals dictionary
+        chemical_schedule = {}
+
+        # Iterate through each chemical to get its week_ml_assignment for the given week
+        for chemical_name, chemical_data in chemicals.items():
+            week_ml_assignments = chemical_data['week_ml_assignments']
+            chemical_schedule[chemical_name] = week_ml_assignments.get(str(week_number), 0)
+
+        return chemical_schedule
 
 
 class PlantContainer:
@@ -320,3 +330,68 @@ class Backend:
 
     def get_available_containers(self):
         return list(self.completed_dict['container_environments'].keys())
+
+    # def get_weekly_chemical_schedule(self):
+    #     weekly_schedule = {}
+    #     for plant_id, plant in self.completed_dict['plants'].items():
+    #         plant_schedule = {}
+    #         if plant.age_in_weeks == 0:
+    #             msg = 'Plant must be at least 1 week old before chemical schedule applies.'
+    #             return {plant_id: {'0': {'chemical': '0 ', 'Note': msg}}}
+    #         for week in range(1, plant.age_in_weeks + 1):
+    #             plant_schedule[week] = plant.get_chemical_schedule_for_week(week)
+    #         weekly_schedule[plant_id] = plant_schedule
+    #     return weekly_schedule
+
+    # def get_current_week_chemical_schedule(self):
+    #     current_week_schedule = {}
+    #
+    #     # Iterate through each plant in the completed_dict
+    #     for plant_id, plant in self.completed_dict['plants'].items():
+    #         if plant.age_in_weeks == 0:
+    #             msg = 'Plant must be at least 1 week old before chemical schedule applies.'
+    #             return {plant_id: {'0': {'chemical': '0 ', 'Note': msg}}}
+    #         current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
+    #         current_week_schedule[plant_id] = plant.get_chemical_schedule_for_week(current_week)
+    #
+    #     return current_week_schedule
+
+    def get_current_week_chemical_schedule(self):
+        current_week_schedule = {}
+
+        # Iterate through each plant in the completed_dict
+        for plant_id, plant in self.completed_dict['plants'].items():
+            if plant.age_in_weeks == 0:
+                msg = 'Plant must be at least 1 week old before chemical schedule applies.'
+                return {'week': 0, 'chemicals': {'chemical': '0 ', 'Note': msg}}
+
+            current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
+            current_week_schedule[plant_id] = {
+                'week': current_week,
+                'chemicals': plant.get_chemical_schedule_for_week(current_week)
+            }
+
+        return current_week_schedule
+
+    # In Backend class
+    def get_current_week_chemical_schedule(self):
+        current_week_schedule = {}
+
+        # Iterate through each plant in the completed_dict
+        for plant_id, plant in self.completed_dict['plants'].items():
+            if plant.age_in_weeks == 0:
+                msg = 'Plant must be at least 1 week old before chemical schedule applies.'
+                current_week_schedule[plant_id] = {'week': 0,
+                                                   'chemicals': {'chemical': '0 ',
+                                                                 'Note': msg},
+                                                   'environment': plant.environment.name}
+                continue
+            current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
+            current_week_schedule[plant_id] = {
+                'week': current_week,
+                'chemicals': plant.get_chemical_schedule_for_week(current_week),
+                'environment': plant.environment.name
+            }
+
+        return current_week_schedule
+
