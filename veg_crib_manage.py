@@ -233,6 +233,7 @@ class Backend:
                 conn.close()
 
     def update_database(self):
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -280,9 +281,10 @@ class Backend:
 
     def delete_plant(self, plant_id):
         plant = self.completed_dict['plants'].get(plant_id)
+        src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         if plant_id in self.completed_dict['plants']:
+            src_container_environment.remove_container(int(plant_id))
             del self.completed_dict['plants'][plant_id]
-            plant[plant_id].environment.remove_container(plant)
             self.update_database()
             return True
         return False
@@ -349,3 +351,4 @@ class Backend:
             }
 
         return current_week_schedule
+
