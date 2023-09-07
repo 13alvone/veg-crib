@@ -129,10 +129,6 @@ class Plant:
         self.container = PlantContainer(self, default_container_rxd, self.environment)
         self.fully_complete = True
 
-        # if not self.environment.add_container(self):
-        #     self.fully_complete = False
-        #     return
-
     def calculate_week_count(self):
         today = datetime.date.today()
         return abs(today - datetime.datetime.strptime(self.birth_date, '%Y-%m-%d').date()).days // 7
@@ -164,7 +160,8 @@ class ContainerEnvironment:
     def __init__(self, _environment_name, _dimensions):
         self.dimensions = _dimensions
         self.grid = self.create_grid_matrix()
-        self.name = "_".join([x.capitalize() for x in _environment_name.strip().split(" ")])
+        # self.name = "_".join([x.capitalize() for x in _environment_name.strip().split(" ")])
+        self.name = _environment_name
         self.max_size = _dimensions['row_count'] * _dimensions['column_count']
 
     def create_grid_matrix(self):
@@ -180,15 +177,16 @@ class ContainerEnvironment:
         for position in self.grid:
             if not self.grid[position]:
                 self.grid[position] = _plant
-                return self
+                return True
         return False
 
     def remove_container(self, plant_id):
         for position, container in self.grid.items():
             if container:
-                if container.id == plant_id:
-                    self.grid[position] = None
-                    return True
+                if isinstance(container, Plant):
+                    if container.id == plant_id:
+                        self.grid[position] = None
+                        return True
         return False
 
     def move_container(self, container, new_position):
@@ -208,15 +206,13 @@ class ContainerEnvironment:
 
 
 class Backend:
-    def __init__(self, run_test_model=False, db_path="database/veg_crib.db"):
+    def __init__(self, db_path="database/veg_crib.db"):
         self.db_path = db_path
         self.completed_dict = completed_dict
         self.initialize_database()
 
-        if run_test_model:
-            self.run_example_full_model()
-
     def initialize_database(self):
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -254,6 +250,7 @@ class Backend:
                 conn.close()
 
     def load_from_database(self):
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -279,7 +276,6 @@ class Backend:
 
     def add_plant(self, plant):
         self.completed_dict['plants'][plant.id] = plant
-        plant.environment.add_container(plant)
         self.update_database()
 
     def delete_plant(self, plant_id):
@@ -306,22 +302,23 @@ class Backend:
 
     def move_plant(self, plant_id, new_container_env_name):
         plant = self.completed_dict['plants'].get(plant_id)
+        src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         dest_container_environment = self.completed_dict['container_environments'].get(new_container_env_name)
-        src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name.lower())
         if plant and dest_container_environment:
             # Remove the plant's container from the current environment's grid
             if src_container_environment.remove_container(plant.id):
+                plant.update_environment(None)
                 self.update_database()
                 # Try to add the plant's container to the new environment's grid
                 if dest_container_environment.add_container(plant):
-                    self.update_database()
                     # Update the plant's environment
                     plant.update_environment(dest_container_environment)
                     self.update_database()
                     return True
                 else:
                     # If adding to the new environment fails, add it back to the old environment
-                    plant.environment.add_container(plant.container)
+                    src_container_environment.add_container(plant)
+                    plant.update_environment(src_container_environment)
                     self.update_database()
                     return False
             else:
@@ -330,48 +327,6 @@ class Backend:
 
     def get_available_containers(self):
         return list(self.completed_dict['container_environments'].keys())
-
-    # def get_weekly_chemical_schedule(self):
-    #     weekly_schedule = {}
-    #     for plant_id, plant in self.completed_dict['plants'].items():
-    #         plant_schedule = {}
-    #         if plant.age_in_weeks == 0:
-    #             msg = 'Plant must be at least 1 week old before chemical schedule applies.'
-    #             return {plant_id: {'0': {'chemical': '0 ', 'Note': msg}}}
-    #         for week in range(1, plant.age_in_weeks + 1):
-    #             plant_schedule[week] = plant.get_chemical_schedule_for_week(week)
-    #         weekly_schedule[plant_id] = plant_schedule
-    #     return weekly_schedule
-
-    # def get_current_week_chemical_schedule(self):
-    #     current_week_schedule = {}
-    #
-    #     # Iterate through each plant in the completed_dict
-    #     for plant_id, plant in self.completed_dict['plants'].items():
-    #         if plant.age_in_weeks == 0:
-    #             msg = 'Plant must be at least 1 week old before chemical schedule applies.'
-    #             return {plant_id: {'0': {'chemical': '0 ', 'Note': msg}}}
-    #         current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
-    #         current_week_schedule[plant_id] = plant.get_chemical_schedule_for_week(current_week)
-    #
-    #     return current_week_schedule
-
-    def get_current_week_chemical_schedule(self):
-        current_week_schedule = {}
-
-        # Iterate through each plant in the completed_dict
-        for plant_id, plant in self.completed_dict['plants'].items():
-            if plant.age_in_weeks == 0:
-                msg = 'Plant must be at least 1 week old before chemical schedule applies.'
-                return {'week': 0, 'chemicals': {'chemical': '0 ', 'Note': msg}}
-
-            current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
-            current_week_schedule[plant_id] = {
-                'week': current_week,
-                'chemicals': plant.get_chemical_schedule_for_week(current_week)
-            }
-
-        return current_week_schedule
 
     # In Backend class
     def get_current_week_chemical_schedule(self):
@@ -394,4 +349,3 @@ class Backend:
             }
 
         return current_week_schedule
-
