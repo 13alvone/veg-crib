@@ -36,10 +36,8 @@ def add_plant():
     # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
-    today = datetime.now().strftime('%Y-%m-%d')  # Get today's date in YYYY-MM-DD format
     if request.method == 'POST':
         environment_name = request.form.get('environment', None)
-        environments = list(backend.completed_dict['container_environments'].keys())
  
         if not environment_name:
             flash('Error: No environment selected or available')
@@ -95,10 +93,9 @@ def add_plant():
         new_plant = Plant(name, harvest_type, environment, grow_type, thc, cbd, birth_date,
                           harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, 
                           age_in_weeks)
+        environment.add_container(new_plant)
         backend.add_plant(new_plant)  # Add the new plant to the backend
-        print("Debug: Plants after adding:", backend.completed_dict['plants'])
         return redirect(url_for('view_plants'))
-
 
     # For GET request, just show the form
     environments = list(backend.completed_dict['container_environments'].keys())
@@ -107,7 +104,6 @@ def add_plant():
 
 @app.route('/view_environments')
 def view_environments():
-    # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
     environments = backend.completed_dict['container_environments']
@@ -116,7 +112,6 @@ def view_environments():
 
 @app.route('/view_plants')
 def view_plants():
-    # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
     plants = backend.completed_dict['plants']
@@ -125,7 +120,6 @@ def view_plants():
 
 @app.route('/delete_plant/<plant_id>', methods=['POST'])
 def delete_plant(plant_id):
-    # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
     if backend.delete_plant(plant_id):
