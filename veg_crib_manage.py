@@ -160,7 +160,6 @@ class ContainerEnvironment:
     def __init__(self, _environment_name, _dimensions):
         self.dimensions = _dimensions
         self.grid = self.create_grid_matrix()
-        # self.name = "_".join([x.capitalize() for x in _environment_name.strip().split(" ")])
         self.name = _environment_name
         self.max_size = _dimensions['row_count'] * _dimensions['column_count']
 
@@ -281,6 +280,7 @@ class Backend:
 
     def delete_plant(self, plant_id):
         plant = self.completed_dict['plants'].get(int(plant_id))
+        plant = self.completed_dict['plants'].get(plant_id) if not plant else plant
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         if plant_id in self.completed_dict['plants']:
             src_container_environment.remove_container(int(plant_id))
@@ -304,6 +304,7 @@ class Backend:
 
     def move_plant(self, plant_id, new_container_env_name):
         plant = self.completed_dict['plants'].get(int(plant_id))
+        plant = self.completed_dict['plants'].get(plant_id) if not plant else plant
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         dest_container_environment = self.completed_dict['container_environments'].get(new_container_env_name)
         if plant and dest_container_environment:
