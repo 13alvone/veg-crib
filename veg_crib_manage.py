@@ -280,7 +280,7 @@ class Backend:
         self.update_database()
 
     def delete_plant(self, plant_id):
-        plant = self.completed_dict['plants'].get(plant_id)
+        plant = self.completed_dict['plants'].get(int(plant_id))
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         if plant_id in self.completed_dict['plants']:
             src_container_environment.remove_container(int(plant_id))
@@ -303,7 +303,7 @@ class Backend:
         return False
 
     def move_plant(self, plant_id, new_container_env_name):
-        plant = self.completed_dict['plants'].get(plant_id)
+        plant = self.completed_dict['plants'].get(int(plant_id))
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         dest_container_environment = self.completed_dict['container_environments'].get(new_container_env_name)
         if plant and dest_container_environment:

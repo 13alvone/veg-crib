@@ -159,6 +159,7 @@ def move_plant(plant_id):
     print("Debug: Plant ID is", plant_id)
     return render_template(f'move_plant.html', available_containers=available_containers, plant_id=plant_id)
 
+
 @app.route('/chemical_schedule')
 def chemical_schedule():
     backend.load_from_database()
