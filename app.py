@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import math
 
 from veg_crib_manage import Backend, ContainerEnvironment, Plant
@@ -27,6 +27,7 @@ def add_environment():
         new_environment = ContainerEnvironment(name, {'row_count': x_dim, 'column_count': y_dim})
         backend.completed_dict['container_environments'][name] = new_environment
         backend.update_database()
+        backend.record_history(container_environment=new_environment, action='CREATE ENVIRONMENT')
         return redirect(url_for('index'))
     return render_template('add_environment.html')
 
@@ -168,4 +169,4 @@ def chemical_schedule():
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=80)
+    app.run(host='127.0.0.1', port=5000)

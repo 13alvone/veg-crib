@@ -13,14 +13,14 @@
             <th>Environment</th>
             <th>Chemicals (Per Gallon)</th>
         </tr>
-        {% for plant_id, data in current_week_schedule.items() %}
+        {% for plant_name, data in current_week_schedule.items() %}
             <tr>
-                <td>{{ plant_id }}</td>
+                <td>{{ plant_name.Upper() }}</td>
                 <td>{{ data.week }}</td>
-                <td>{{ data.environment }}</td>
+                <td>{{ data.environment.Upper() }}</td>
                 <td>
                     {% for chemical, ml in data.chemicals.items() %}
-                        {{ chemical }}: {{ ml }}ml<br>
+                        {{ chemical.Upper() }}: {{ ml }}ml<br>
                     {% endfor %}
                 </td>
             </tr>

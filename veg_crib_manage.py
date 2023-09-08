@@ -1,6 +1,7 @@
-import datetime
 import sqlite3
 import jsonpickle
+from datetime import datetime, date
+import time
 
 next_plant_id = 1  # Initialize the ID counter
 completed_dict = {
@@ -93,6 +94,15 @@ def generate_new_id():
     return new_id
 
 
+def date_to_epoch(date_or_datetime):
+    if not isinstance(date_or_datetime, (date, datetime)):
+        raise TypeError("Input must be a date or datetime object.")
+    if isinstance(date_or_datetime, date) and not isinstance(date_or_datetime, datetime):
+        date_or_datetime = datetime.combine(date_or_datetime, datetime.min.time())
+
+    return int(date_or_datetime.timestamp())
+
+
 class Chemical:
     def __init__(self, chemical_name):
         global chemicals
@@ -115,7 +125,7 @@ class Plant:
         self.name = name
         self.harvest_type = harvest_type
         self.environment = environment
-        self.grow_type = grow_type
+        self.grow_type = grow_type  # Auto or Standard
         self.thc = thc
         self.cbd = cbd
         self.birth_date = birth_date
@@ -125,13 +135,12 @@ class Plant:
         self.mid_cure_date = mid_cure_date
         self.high_cure_date = high_cure_date
         self.age_in_weeks = age_in_weeks
-        default_container_rxd = "3x5"  # Default container dimensions
-        self.container = PlantContainer(self, default_container_rxd, self.environment)
+        self.container = PlantContainer(self, "3x5", self.environment)
         self.fully_complete = True
 
     def calculate_week_count(self):
-        today = datetime.date.today()
-        return abs(today - datetime.datetime.strptime(self.birth_date, '%Y-%m-%d').date()).days // 7
+        today = date.today()
+        return abs(today - datetime.strptime(self.birth_date, '%Y-%m-%d').date()).days // 7
 
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
@@ -215,12 +224,18 @@ class Backend:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS plant_history
+                              (event_epoch REAL, name TEXT, harvest_type TEXT, environment_name TEXT, 
+                              environment_max_size NUMBER, environment_grid TEXT, grow_type TEXT, thc REAL, 
+                              cbd REAL, birth_date REAL, harvest_date REAL, bottle_date REAL, low_cure_date REAL, 
+                              mid_cure_date REAL, high_cure_date REAL, age_in_weeks NUMBER, container_name TEXT, 
+                              container_dimensions TEXT, action TEXT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS completed_dict
                               (last_updated TEXT, chemicals TEXT, plants TEXT, container_environments TEXT)''')
             cursor.execute("SELECT COUNT(*) FROM completed_dict")
             if cursor.fetchone()[0] == 0:
                 cursor.execute("INSERT INTO completed_dict VALUES (?, ?, ?, ?)",
-                               (datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                               (datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                                 jsonpickle.encode(self.completed_dict['chemicals']),
                                 jsonpickle.encode(self.completed_dict['plants']),
                                 jsonpickle.encode(self.completed_dict['container_environments'])))
@@ -236,7 +251,7 @@ class Backend:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            self.completed_dict['last_updated'] = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            self.completed_dict['last_updated'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             cursor.execute("UPDATE completed_dict SET last_updated = ?, chemicals = ?, plants = ?, container_environments = ?",
                            (self.completed_dict['last_updated'],
                             jsonpickle.encode(self.completed_dict['chemicals']),
@@ -274,9 +289,81 @@ class Backend:
             if conn:
                 conn.close()
 
+    def record_history(self, action='', plant=None, container_environment=None, chemical=None,
+                       delete_plant=False, delete_container=False):
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            if not plant and not container_environment and not chemical:
+                return
+            elif plant and not container_environment:
+                container_environment = plant.environment
+
+            plant_name_with_birth_date = f"{plant.name}_{date_to_epoch(plant.birth_date)}" if plant else None
+            parsed_ce_max_size = None
+            parsed_aiw_size = None
+
+            if delete_container:
+                updated_container_environment_name = f'DELETE_{container_environment.name}'
+                action = 'DELETE CONTAINER'
+            else:
+                updated_container_environment_name = container_environment.name if container_environment else None
+
+            if delete_plant:
+                updated_plant_name = f'DELETE_{plant_name_with_birth_date}'
+                action = 'DELETE PLANT'
+            else:
+                updated_plant_name = plant_name_with_birth_date if plant else None
+
+            if container_environment:
+                try:
+                    parsed_ce_max_size = int(container_environment.max_size)
+                except:
+                    parsed_ce_max_size = container_environment.max_size if container_environment else None
+
+            if plant:
+                try:
+                    parsed_aiw_size = int(plant.age_in_weeks)
+                except:
+                    parsed_aiw_size = plant.age_in_weeks if container_environment else None
+
+            cursor.execute('''INSERT INTO plant_history 
+                              (event_epoch, name, harvest_type, environment_name, environment_max_size, 
+                              environment_grid, grow_type, thc, cbd, birth_date, harvest_date, bottle_date, 
+                              low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, container_name, 
+                              container_dimensions, action) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                           (time.time(),
+                            updated_plant_name,
+                            plant.harvest_type if plant else None,
+                            updated_container_environment_name,
+                            parsed_ce_max_size,
+                            f'{container_environment.grid}' if container_environment else None,
+                            plant.grow_type if plant else None,
+                            plant.thc if plant else None,
+                            plant.cbd if plant else None,
+                            date_to_epoch(plant.birth_date) if plant else None,
+                            date_to_epoch(plant.harvest_date) if plant else None,
+                            date_to_epoch(plant.bottle_date) if plant else None,
+                            date_to_epoch(plant.low_cure_date) if plant else None,
+                            date_to_epoch(plant.mid_cure_date) if plant else None,
+                            date_to_epoch(plant.high_cure_date) if plant else None,
+                            parsed_aiw_size,
+                            container_environment.name if container_environment else None,
+                            f'{container_environment.dimensions}' if container_environment else None,
+                            action))
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            if conn:
+                conn.close()
+
     def add_plant(self, plant):
         self.completed_dict['plants'][plant.id] = plant
         self.update_database()
+        self.record_history(plant=plant, action='CREATE PLANT')
 
     def delete_plant(self, plant_id):
         plant = self.completed_dict['plants'].get(int(plant_id))
@@ -286,6 +373,8 @@ class Backend:
             src_container_environment.remove_container(int(plant_id))
             del self.completed_dict['plants'][plant_id]
             self.update_database()
+            self.record_history(plant=plant, delete_plant=True)
+            self.record_history(container_environment=src_container_environment, action='REMOVE PLANT')
             return True
         return False
 
@@ -296,6 +385,7 @@ class Backend:
             if container_env.is_grid_empty():
                 del self.completed_dict['container_environments'][container_name]
                 self.update_database()
+                self.record_history(container_environment=container_env, delete_container=True)
                 return True
             else:
                 print("Cannot delete environment: Grid is not empty. Please move or delete plant(s) first.")
@@ -312,17 +402,21 @@ class Backend:
             if src_container_environment.remove_container(plant.id):
                 plant.update_environment(None)
                 self.update_database()
+                self.record_history(plant=plant, action='MOVE PLANT (REMOVE)')
                 # Try to add the plant's container to the new environment's grid
                 if dest_container_environment.add_container(plant):
                     # Update the plant's environment
                     plant.update_environment(dest_container_environment)
                     self.update_database()
+                    self.record_history(plant=plant, action='MOVE PLANT (ADD)')
                     return True
                 else:
                     # If adding to the new environment fails, add it back to the old environment
                     src_container_environment.add_container(plant)
                     plant.update_environment(src_container_environment)
                     self.update_database()
+                    self.record_history(plant=plant)
+                    self.record_history(plant=plant, action='MOVE PLANT FAILED (PUTTING BACK)')
                     return False
             else:
                 return False  # Failed to remove from old environment
@@ -339,13 +433,13 @@ class Backend:
         for plant_id, plant in self.completed_dict['plants'].items():
             if plant.age_in_weeks == 0:
                 msg = 'Plant must be at least 1 week old before chemical schedule applies.'
-                current_week_schedule[plant_id] = {'week': 0,
+                current_week_schedule[plant.name] = {'week': 0,
                                                    'chemicals': {'chemical': '0 ',
                                                                  'Note': msg},
                                                    'environment': plant.environment.name}
                 continue
             current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
-            current_week_schedule[plant_id] = {
+            current_week_schedule[plant.name] = {
                 'week': current_week,
                 'chemicals': plant.get_chemical_schedule_for_week(current_week),
                 'environment': plant.environment.name
