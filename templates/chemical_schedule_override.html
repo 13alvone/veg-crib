@@ -1,0 +1,45 @@
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chemical Schedule Override</title>
+</head>
+<body>
+    <h1>Chemical Schedule Override</h1>
+    <form action="/set_chemical_override" method="post">
+        <table>
+            <thead>
+                <tr>
+                    <th>Week Number</th>
+                    <th>Chemical Name</th>
+                    <th>Override Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamically generate these rows based on the chemical schedule -->
+                {% for week, chemicals in chemical_schedule.items() %}
+                <tr>
+                    <td>{{ week }}</td>
+                    {% for chemical, value in chemicals.items() %}
+                    <td>{{ chemical }}</td>
+                    <td>
+                        <input type="number" name="overrideValue_{{ week }}_{{ chemical }}" min="1" max="25" step="1">
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="submit" value="Save">
+    </form>
+{% include 'footer.html' %}
+</body>
+</html>

@@ -1,9 +1,12 @@
 import sqlite3
 import jsonpickle
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import time
+import smtplib
 
 next_plant_id = 1  # Initialize the ID counter
+water_day = datetime.now()  # Initialize with the current date
+water_period = 7  # Default to 7 days
 completed_dict = {
     'last_updated': 'Unknown',
     'chemicals': {},
@@ -87,6 +90,12 @@ chemicals = {
 }
 
 
+def calculate_next_water_day():
+    """Calculate the next water day based on the water period."""
+    global water_day
+    water_day += timedelta(days=water_period)
+
+
 def generate_new_id():
     global next_plant_id  # Declare the variable as global so we can modify it
     new_id = next_plant_id  # Use the current value of next_plant_id as the new ID
@@ -106,23 +115,24 @@ def date_to_epoch(date_or_datetime):
 class Chemical:
     def __init__(self, chemical_name):
         global chemicals
-        valid_chemicals = chemicals.keys()
         self.name = chemical_name.lower()
         self.description = chemicals[self.name]['description']
         self.week_ml_assignments = chemicals[self.name]['week_ml_assignments']
 
-    def get_description(self, chemical_name):
-        global chemicals
-        valid_chemicals = chemicals.keys()
+    def get_description(self):
         return self.description
 
 
 class Plant:
-    def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date,
-             harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, 
-             _container_rxd='3x5', id=None):
+    global water_day, water_period
+
+    def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date, harvest_date, bottle_date,
+                 low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, _container_rxd='3x5', id=None,
+                 _water_day=water_day, _water_period=water_period, harvest_amount=None):
         self.id = id if id else generate_new_id()  # Assuming you have a function to generate new IDs
         self.name = name
+        self.water_day = datetime.now()  # Initialize with the current date
+        self.water_period = 7  # Default to 7 days
         self.harvest_type = harvest_type
         self.environment = environment
         self.grow_type = grow_type  # Auto or Standard
@@ -135,8 +145,13 @@ class Plant:
         self.mid_cure_date = mid_cure_date
         self.high_cure_date = high_cure_date
         self.age_in_weeks = age_in_weeks
+        self.harvest_amount = harvest_amount
         self.container = PlantContainer(self, "3x5", self.environment)
         self.fully_complete = True
+
+    def calculate_next_water_day(self):
+        """Calculate the next water day based on the water period."""
+        self.water_day += timedelta(days=self.water_period)
 
     def calculate_week_count(self):
         today = date.today()
@@ -145,8 +160,9 @@ class Plant:
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
 
+    @static
     def get_chemical_schedule_for_week(self, week_number):
-        global chemicals  # Access the global chemicals dictionary
+        global chemicals
         chemical_schedule = {}
 
         # Iterate through each chemical to get its week_ml_assignment for the given week
@@ -218,6 +234,17 @@ class Backend:
         self.db_path = db_path
         self.completed_dict = completed_dict
         self.initialize_database()
+        self.alerts_enabled = True
+        self.last_visit_date = None
+        self.visit_count = 0
+
+    def check_show_alert(self):
+        today = datetime.now().date()
+        if self.last_visit_date != today:
+            self.last_visit_date = today
+            self.visit_count = 0
+        self.visit_count += 1
+        return self.alerts_enabled and self.visit_count <= 2
 
     def initialize_database(self):
         conn = None
@@ -229,9 +256,18 @@ class Backend:
                               environment_max_size NUMBER, environment_grid TEXT, grow_type TEXT, thc REAL, 
                               cbd REAL, birth_date REAL, harvest_date REAL, bottle_date REAL, low_cure_date REAL, 
                               mid_cure_date REAL, high_cure_date REAL, age_in_weeks NUMBER, container_name TEXT, 
-                              container_dimensions TEXT, action TEXT)''')
+                              container_dimensions TEXT, action TEXT, harvest_amount REAL)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS chemical_schedule_override 
+                              (id INTEGER PRIMARY KEY AUTOINCREMENT, week_number INTEGER, chemical_name TEXT, 
+                              override_value REAL)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS actual_chemical_usage
+                              (id INTEGER PRIMARY KEY AUTOINCREMENT, plant_id INTEGER, week_number INTEGER, 
+                              chemical_name TEXT, actual_value REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS completed_dict
                               (last_updated TEXT, chemicals TEXT, plants TEXT, container_environments TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS email_credentials
+                              (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, 
+                              encrypted_app_password TEXT NOT NULL''')
             cursor.execute("SELECT COUNT(*) FROM completed_dict")
             if cursor.fetchone()[0] == 0:
                 cursor.execute("INSERT INTO completed_dict VALUES (?, ?, ?, ?)",
@@ -252,7 +288,8 @@ class Backend:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             self.completed_dict['last_updated'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            cursor.execute("UPDATE completed_dict SET last_updated = ?, chemicals = ?, plants = ?, container_environments = ?",
+            cursor.execute("UPDATE completed_dict SET last_updated = ?, chemicals = ?, plants = ?, "
+                           "container_environments = ?",
                            (self.completed_dict['last_updated'],
                             jsonpickle.encode(self.completed_dict['chemicals']),
                             jsonpickle.encode(self.completed_dict['plants']),
@@ -263,6 +300,44 @@ class Backend:
         finally:
             if conn:
                 conn.close()
+
+    def get_chemical_schedule(self):
+        conn = None
+        chemical_schedule = {}
+        try:
+            """Fetch the chemical schedule for all weeks, applying any overrides."""
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Initialize the chemical_schedule dictionary week count
+            max_week_number = 52  # Assuming a maximum of 52 weeks in a year
+
+            # Fetch the base chemical schedule for all weeks
+            global chemicals  # Access the global chemicals dictionary
+            for week_number in range(1, max_week_number + 1):
+                chemical_schedule[week_number] = {}
+                for chemical_name, chemical_data in chemicals.items():
+                    week_ml_assignments = chemical_data['week_ml_assignments']
+                    chemical_schedule[week_number][chemical_name] = week_ml_assignments.get(str(week_number), 0)
+
+            # Fetch any overrides
+            cursor.execute("SELECT week_number, chemical_name, override_value FROM chemical_schedule_override")
+            overrides = cursor.fetchall()
+
+            last_override_week = -1
+            for week_number, chemical_name, override_value in overrides:
+                if week_number >= last_override_week:
+                    # Apply the override to this week and all future weeks
+                    for future_week in range(week_number, max_week_number + 1):
+                        chemical_schedule[future_week][chemical_name] = override_value
+                    last_override_week = week_number
+
+        except sqlite3.Error as e:
+            print(f"get_chemical_schedule() Error: {e}")
+        finally:
+            if conn:
+                conn.close()
+            return chemical_schedule
 
     def load_from_database(self):
         conn = None
@@ -289,6 +364,58 @@ class Backend:
             if conn:
                 conn.close()
 
+    def record_actual_chemical_usage(self, plant_id, week_number, chemical_name, actual_value):
+        """Record the actual chemical usage for a plant."""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""INSERT INTO actual_chemical_usage (plant_id, week_number, chemical_name, actual_value)
+                VALUES (?, ?, ?, ?)""", (plant_id, week_number, chemical_name, actual_value))
+
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    def set_chemical_override(self, week_number, chemical_name, override_value):
+        """Set the override value for a chemical in a specific week."""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO chemical_schedule_override (week_number, chemical_name, override_value)
+                VALUES (?, ?, ?)""", (week_number, chemical_name, override_value))
+
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    def check_email_credentials(self):
+        conn = None
+        count = 1
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM email_credentials")
+            count = cursor.fetchone()[0]
+            conn.close()
+            return count == 0
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+                return count == 0
+
     def record_history(self, action='', plant=None, container_environment=None, chemical=None,
                        delete_plant=False, delete_container=False):
         conn = None
@@ -299,6 +426,11 @@ class Backend:
                 return
             elif plant and not container_environment:
                 container_environment = plant.environment
+            elif not plant and container_environment:
+                pass
+                # Stub for future use: For each plant in environment, we could run 'record_history()'
+                # but currently unclear of what action that would represent, and it doesn't happen in the code
+                # explicitly... yet.'
 
             plant_name_with_birth_date = f"{plant.name}_{date_to_epoch(plant.birth_date)}" if plant else None
             parsed_ce_max_size = None
@@ -319,21 +451,23 @@ class Backend:
             if container_environment:
                 try:
                     parsed_ce_max_size = int(container_environment.max_size)
-                except:
+                except Exception as e:
+                    print(f'[!] record_history() Error {e}.')
                     parsed_ce_max_size = container_environment.max_size if container_environment else None
 
             if plant:
                 try:
                     parsed_aiw_size = int(plant.age_in_weeks)
-                except:
+                except Exception as e:
+                    print(f'[!] record_history() Error. {e}')
                     parsed_aiw_size = plant.age_in_weeks if container_environment else None
 
             cursor.execute('''INSERT INTO plant_history 
                               (event_epoch, name, harvest_type, environment_name, environment_max_size, 
                               environment_grid, grow_type, thc, cbd, birth_date, harvest_date, bottle_date, 
                               low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, container_name, 
-                              container_dimensions, action) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                              container_dimensions, action, harvest_amount) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                            (time.time(),
                             updated_plant_name,
                             plant.harvest_type if plant else None,
@@ -360,14 +494,21 @@ class Backend:
             if conn:
                 conn.close()
 
+    def get_all_plants(self):
+        return self.completed_dict['plants']
+
     def add_plant(self, plant):
         self.completed_dict['plants'][plant.id] = plant
         self.update_database()
         self.record_history(plant=plant, action='CREATE PLANT')
 
-    def delete_plant(self, plant_id):
+    def delete_plant(self, plant_id, _harvest_amount):
         plant = self.completed_dict['plants'].get(int(plant_id))
         plant = self.completed_dict['plants'].get(plant_id) if not plant else plant
+        plant.harvest_amount = _harvest_amount
+        if not isinstance(plant, Plant):
+            print(f"[!] The 'delete_plant' backend requires a 'Plant' object. `{type(plant)}` type was passed.")
+            return False
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
         if plant_id in self.completed_dict['plants']:
             src_container_environment.remove_container(int(plant_id))
@@ -425,7 +566,15 @@ class Backend:
     def get_available_containers(self):
         return list(self.completed_dict['container_environments'].keys())
 
-    # In Backend class
+    @static
+    def send_email_notification(self, email_address):
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login("cspeakesinfo@gmail.com", os.environ.get('GMAIL_EMAIL_APP_PASSWORD'))
+        message = "Subject: Water Day Reminder\n\nIt's time to water your plants! Be sure to update the app!"
+        server.sendmail("cspeakes@gmail.com", email_address, message)
+        server.quit()
+
     def get_current_week_chemical_schedule(self):
         current_week_schedule = {}
 
@@ -433,10 +582,8 @@ class Backend:
         for plant_id, plant in self.completed_dict['plants'].items():
             if plant.age_in_weeks == 0:
                 msg = 'Plant must be at least 1 week old before chemical schedule applies.'
-                current_week_schedule[plant.name] = {'week': 0,
-                                                   'chemicals': {'chemical': '0 ',
-                                                                 'Note': msg},
-                                                   'environment': plant.environment.name}
+                current_week_schedule[plant.name] = {'week': 0, 'chemicals': {'chemical': '0 ', 'Note': msg},
+                                                     'environment': plant.environment.name}
                 continue
             current_week = plant.age_in_weeks  # Assuming age_in_weeks is up-to-date
             current_week_schedule[plant.name] = {
@@ -446,4 +593,3 @@ class Backend:
             }
 
         return current_week_schedule
-

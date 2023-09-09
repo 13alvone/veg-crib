@@ -1,0 +1,32 @@
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Global Settings</title>
+</head>
+<body>
+    <h1>Global Settings</h1>
+    <form action="/update_global_settings" method="post">
+        <label for="globalWaterPeriod">Global Water Period:</label>
+        <input type="number" id="globalWaterPeriod" name="globalWaterPeriod" value="7">
+
+        <!-- Add more global settings here as needed -->
+
+        <input type="submit" value="Save Settings">
+    </form>
+    <form action="/set_email_credentials" method="post">
+        <input type="text" name="email" placeholder="Gmail Email">
+        <input type="password" name="appPassword" placeholder="App Password">
+        <input type="submit" value="Save">
+    </form>
+</body>
+{% include 'footer.html' %}
+</html>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime, timedelta, date
 import math
 
@@ -14,6 +14,51 @@ def index():
     # Clear any existing flash messages
     session.pop('_flashes', None)
     return render_template('index.html')
+
+
+@app.route('/global_settings', methods=['GET'])
+def global_settings():
+    return render_template('global_settings.html')
+
+@app.route('/update_global_settings', methods=['POST'])
+def update_global_settings():
+    global backend
+    water_day = request.form.get('globalWaterDay')
+    water_period = int(request.form.get('globalWaterPeriod', 7))  # Default to 7 if not provided
+
+    # Convert water_day to datetime object
+    water_day = datetime.strptime(water_day, '%Y-%m-%d')
+
+
+@app.route('/enter_water_day_values', methods=['GET'])
+def enter_water_day_values():
+    week_monday_date = calculate_week_monday_date()  # Implement this function
+    plants = get_all_plants_with_chemicals()  # Implement this function
+    return render_template('enter_water_day_values.html', week_monday_date=week_monday_date, plants=plants)
+
+
+@app.route('/submit_water_day_values', methods=['POST'])
+def submit_water_day_values():
+    for plant in get_all_plants_with_chemicals():  # Implement this function
+        actual_value = request.form.get(f"actualValue_{plant.id}_{plant.chemical_name}")
+        if actual_value:
+            record_actual_chemical_usage(plant.id, calculate_current_week_number(), plant.chemical_name, float(actual_value))
+
+
+@app.route('/record_chemical_usage', methods=['POST'])
+def record_chemical_usage():
+    plant_id = request.form.get('plantId')
+    week_number = calculate_current_week_number()  # Implement this function
+    chemical_name = request.form.get('chemicalName')
+    actual_value = float(request.form.get('actualValue'))  # Type validation
+    record_actual_chemical_usage(plant_id, week_number, chemical_name, actual_value)
+
+
+@app.route('/check_email_credentials', methods=['GET'])
+def check_email_credentials():
+    missing = backend.check_email_credentials()
+    show_alert = backend.check_show_alert()
+    return jsonify({'missing': missing, 'show_alert': show_alert})
 
 
 @app.route('/add_environment', methods=['GET', 'POST'])
@@ -37,6 +82,9 @@ def add_plant():
     # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
+    water_day = request.form.get('waterDay')
+    water_period = int(request.form.get('waterPeriod', 7))  # Default to 7 if not provided
+    water_day = datetime.strptime(water_day, '%Y-%m-%d')
     if request.method == 'POST':
         environment_name = request.form.get('environment', None)
  
@@ -93,7 +141,7 @@ def add_plant():
         # Create Plant object and add to backend
         new_plant = Plant(name, harvest_type, environment, grow_type, thc, cbd, birth_date,
                           harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, 
-                          age_in_weeks)
+                          age_in_weeks, water_day=water_day, water_period=water_period)
         environment.add_container(new_plant)
         backend.add_plant(new_plant)  # Add the new plant to the backend
         return redirect(url_for('view_plants'))
@@ -119,15 +167,30 @@ def view_plants():
     return render_template('view_plants.html', plants=plants)
 
 
-@app.route('/delete_plant/<plant_id>', methods=['POST'])
-def delete_plant(plant_id):
+@app.route('/delete_plant_page', methods=['GET'])
+def delete_plant_page():
     session.pop('_flashes', None)
     backend.load_from_database()
-    if backend.delete_plant(plant_id):
-        flash('Plant deleted successfully.')
-    else:
-        flash('Failed to delete plant.')
-    return redirect(url_for('view_plants'))
+    plants = backend.get_all_plants()  # Implement this function to fetch all plants
+    return render_template('delete_plant_page.html', plants=plants)
+
+
+@app.route('/set_chemical_override', methods=['POST'])
+def set_chemical_override():
+    for week, chemicals in get_chemical_schedule().items():  # Implement this function
+        for chemical, value in chemicals.items():
+            override_value = request.form.get(f"overrideValue_{week}_{chemical}")
+            if override_value:
+                set_chemical_override(week, chemical, float(override_value))
+
+
+@app.route('/delete_plant', methods=['POST'])
+def delete_plant():
+    session.pop('_flashes', None)
+    backend.load_from_database()
+    plant_id = request.form.get('plantId')
+    harvest_amount = float(request.form.get('harvestAmount'))  # Type validation
+    delete_plant(plant_id, harvest_amount)  # Modified function to include harvest_amount
 
 
 @app.route('/delete_environment/<environment_name>', methods=['POST'])

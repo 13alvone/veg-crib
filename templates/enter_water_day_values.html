@@ -1,0 +1,41 @@
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enter Water Day Values for '{{ week_monday_date }}'</title>
+</head>
+<body>
+    <h1>Enter Water Day Values for '{{ week_monday_date }}'</h1>
+    <form action="/submit_water_day_values" method="post">
+        <table>
+            <thead>
+                <tr>
+                    <th>Plant ID</th>
+                    <th>Chemical Name</th>
+                    <th>Actual Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dynamically generate these rows based on the plants and their chemical schedule -->
+                {% for plant in plants %}
+                <tr>
+                    <td>{{ plant.id }}</td>
+                    <td>{{ plant.chemical_name }}</td>
+                    <td><input type="number" name="actualValue_{{ plant.id }}_{{ plant.chemical_name }}"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+{% include 'footer.html' %}
+</html>
