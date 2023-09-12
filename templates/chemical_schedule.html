@@ -15,12 +15,12 @@
         </tr>
         {% for plant_name, data in current_week_schedule.items() %}
             <tr>
-                <td>{{ plant_name.Upper() }}</td>
+                <td>{{ plant_name.upper() }}</td>
                 <td>{{ data.week }}</td>
-                <td>{{ data.environment.Upper() }}</td>
+                <td>{{ data.environment.upper() }}</td>
                 <td>
                     {% for chemical, ml in data.chemicals.items() %}
-                        {{ chemical.Upper() }}: {{ ml }}ml<br>
+                        {{ chemical.upper() }}: {{ ml }}ml<br>
                     {% endfor %}
                 </td>
             </tr>

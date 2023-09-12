@@ -13,6 +13,49 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <meta charset="UTF-8">
     <title>Add Plant</title>
+    <script>
+        // Deferred execution of the function until the HTML document has been completely loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const environmentSelect = document.getElementById('environment');
+
+            // Checking if 'environments' list is empty on initial rendering
+            if (environmentSelect.options.length === 0) {
+                alert('You should first create a container_environment, THEN add a plant. Please return then.');
+                window.location.href = '/'; // Redirecting back to index.html
+            }
+        });
+
+        function validateTHC(input) {
+            if (input.value < 0 || input.value > 100) {
+                alert("THC percentages must be numeric values between 0 and 100. Please try again.");
+                input.value = 0;
+            }
+        }
+
+        function validateCBD(input) {
+            if (input.value < 0 || input.value > 100) {
+                alert("CBD percentages must be numeric values between 0 and 100. Please try again.");
+                input.value = 0;
+            }
+        }
+
+        function validateBirthDate(input) {
+            const today = new Date();
+            const inputDate = new Date(input.value);
+            const tenYearsAgo = new Date();
+            tenYearsAgo.setFullYear(today.getFullYear() - 10);
+            const oneWeekLater = new Date();
+            oneWeekLater.setDate(today.getDate() + 7);
+
+            if (inputDate < tenYearsAgo) {
+                alert("Dates older than 10 years from today are not applicable. Please try again.");
+                input.value = "";
+            } else if (inputDate > oneWeekLater) {
+                alert("Date planning more than 7 days in the future are generally plans not followed. Please come back closer to the time of birth and try again.");
+                input.value = "";
+            }
+        }
+    </script>
 </head>
 <body>
     <h1>Add Plant</h1>
@@ -52,39 +95,6 @@
 
         <input type="submit" value="Add Plant">
     </form>
-
-    <script>
-        function validateTHC(input) {
-            if (input.value < 0 || input.value > 100) {
-                alert("THC percentages must be numeric values between 0 and 100. Please try again.");
-                input.value = 0;
-            }
-        }
-
-        function validateCBD(input) {
-            if (input.value < 0 || input.value > 100) {
-                alert("CBD percentages must be numeric values between 0 and 100. Please try again.");
-                input.value = 0;
-            }
-        }
-
-        function validateBirthDate(input) {
-            const today = new Date();
-            const inputDate = new Date(input.value);
-            const tenYearsAgo = new Date();
-            tenYearsAgo.setFullYear(today.getFullYear() - 10);
-            const oneWeekLater = new Date();
-            oneWeekLater.setDate(today.getDate() + 7);
-
-            if (inputDate < tenYearsAgo) {
-                alert("Dates older than 10 years from today are not applicable. Please try again.");
-                input.value = "";
-            } else if (inputDate > oneWeekLater) {
-                alert("Date planning more than 7 days in the future are generally plans not followed. Please come back closer to the time of birth and try again.");
-                input.value = "";
-            }
-        }
-    </script>
     {% include 'footer.html' %}
 </body>
 </html>

@@ -13,9 +13,13 @@
     <title>Delete Plant</title>
     <script type="text/javascript">
         function confirmDelete() {
-            var plantId = document.getElementById("plantId").value;
+            var plantIdElement = document.getElementById("plantId");
+            var plantId = plantIdElement.value;
+            var selectedOption = plantIdElement.options[plantIdElement.selectedIndex];
+            var plantName = selectedOption.getAttribute("data-plant-name");
+
             var harvestAmount = document.getElementById("harvestAmount").value;
-            var confirmationMessage = "You are about to delete plant with NAME/ID: " + plantId +
+            var confirmationMessage = "You are about to delete plant with NAME/ID: " + plantName +
                                       "\nHarvest Amount to be recorded: " + harvestAmount + " grams" +
                                       "\n\nAre you sure you want to proceed?";
             return window.confirm(confirmationMessage);
@@ -29,14 +33,14 @@
         <label for="plantId">Select Plant to Delete:</label>
         <select id="plantId" name="plantId">
             <!-- Dynamically generate these options based on existing plants -->
-            {% for plant in plants %}
-            <option value="{{ plant.id }}">{{ plant.name }}</option>
+            {% for plant_id, plant_name in plant_info.items() %}
+                <option value="{{ plant_id }}" data-plant-name="{{ plant_name }}">{{ plant_name }}</option>
             {% endfor %}
         </select>
 
         <!-- Input field for harvest amount -->
         <label for="harvestAmount">Harvest Amount (grams):</label>
-        <input type="number" id="harvestAmount" name="harvestAmount" step="0.01">
+        <input type="number" id="harvestAmount" name="harvestAmount" step="0.1">
 
         <input type="submit" value="Delete Plant">
     </form>

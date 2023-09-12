@@ -82,16 +82,16 @@ def add_plant():
     # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
-    water_day = request.form.get('waterDay')
-    water_period = int(request.form.get('waterPeriod', 7))  # Default to 7 if not provided
-    water_day = datetime.strptime(water_day, '%Y-%m-%d')
+    # water_day = request.form.get('waterDay')
+    # water_period = int(request.form.get('waterPeriod', 7))  # Default to 7 if not provided
+    # water_day = datetime.strptime(water_day, '%Y-%m-%d')
     if request.method == 'POST':
         environment_name = request.form.get('environment', None)
- 
+
         if not environment_name:
             flash('Error: No environment selected or available')
             return redirect(url_for('add_plant'))
-        
+
         # Validate name
         name = request.form['name']
         if not name.isalnum():
@@ -140,8 +140,8 @@ def add_plant():
 
         # Create Plant object and add to backend
         new_plant = Plant(name, harvest_type, environment, grow_type, thc, cbd, birth_date,
-                          harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date, 
-                          age_in_weeks, water_day=water_day, water_period=water_period)
+                          harvest_date, bottle_date, low_cure_date, mid_cure_date, high_cure_date,
+                          age_in_weeks)
         environment.add_container(new_plant)
         backend.add_plant(new_plant)  # Add the new plant to the backend
         return redirect(url_for('view_plants'))
@@ -172,16 +172,8 @@ def delete_plant_page():
     session.pop('_flashes', None)
     backend.load_from_database()
     plants = backend.get_all_plants()  # Implement this function to fetch all plants
-    return render_template('delete_plant_page.html', plants=plants)
-
-
-@app.route('/set_chemical_override', methods=['POST'])
-def set_chemical_override():
-    for week, chemicals in get_chemical_schedule().items():  # Implement this function
-        for chemical, value in chemicals.items():
-            override_value = request.form.get(f"overrideValue_{week}_{chemical}")
-            if override_value:
-                set_chemical_override(week, chemical, float(override_value))
+    _plant_info = {z.id: z.name for z in [y for x, y in plants.items()]}
+    return render_template('delete_plant_page.html', plant_info=_plant_info)
 
 
 @app.route('/delete_plant', methods=['POST'])
@@ -190,12 +182,12 @@ def delete_plant():
     backend.load_from_database()
     plant_id = request.form.get('plantId')
     harvest_amount = float(request.form.get('harvestAmount'))  # Type validation
-    delete_plant(plant_id, harvest_amount)  # Modified function to include harvest_amount
+    backend.delete_plant(plant_id, harvest_amount)
+    return render_template(url_for('index'))
 
 
 @app.route('/delete_environment/<environment_name>', methods=['POST'])
 def delete_container_environment(environment_name):
-    # Clear any existing flash messages
     session.pop('_flashes', None)
     backend.load_from_database()
     if backend.delete_container_environment(environment_name):

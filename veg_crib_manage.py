@@ -128,7 +128,7 @@ class Plant:
 
     def __init__(self, name, harvest_type, environment, grow_type, thc, cbd, birth_date, harvest_date, bottle_date,
                  low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, _container_rxd='3x5', id=None,
-                 _water_day=water_day, _water_period=water_period, harvest_amount=None):
+                 harvest_amount=0.0):
         self.id = id if id else generate_new_id()  # Assuming you have a function to generate new IDs
         self.name = name
         self.water_day = datetime.now()  # Initialize with the current date
@@ -160,7 +160,6 @@ class Plant:
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
 
-    @static
     def get_chemical_schedule_for_week(self, week_number):
         global chemicals
         chemical_schedule = {}
@@ -264,10 +263,10 @@ class Backend:
                               (id INTEGER PRIMARY KEY AUTOINCREMENT, plant_id INTEGER, week_number INTEGER, 
                               chemical_name TEXT, actual_value REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS completed_dict
-                              (last_updated TEXT, chemicals TEXT, plants TEXT, container_environments TEXT)''')
+                              (last_updated REAL, chemicals TEXT, plants TEXT, container_environments TEXT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS email_credentials
                               (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, 
-                              encrypted_app_password TEXT NOT NULL''')
+                              encrypted_app_password TEXT NOT NULL)''')
             cursor.execute("SELECT COUNT(*) FROM completed_dict")
             if cursor.fetchone()[0] == 0:
                 cursor.execute("INSERT INTO completed_dict VALUES (?, ?, ?, ?)",
@@ -287,10 +286,10 @@ class Backend:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            self.completed_dict['last_updated'] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            cursor.execute("UPDATE completed_dict SET last_updated = ?, chemicals = ?, plants = ?, "
-                           "container_environments = ?",
-                           (self.completed_dict['last_updated'],
+            self.completed_dict['last_updated'] = datetime.now() #.strftime("%d/%m/%Y %H:%M:%S")
+            cursor.execute('''UPDATE completed_dict SET last_updated = ?, chemicals = ?, plants = ?, 
+                           container_environments = ?''',
+                           (date_to_epoch(self.completed_dict['last_updated']),
                             jsonpickle.encode(self.completed_dict['chemicals']),
                             jsonpickle.encode(self.completed_dict['plants']),
                             jsonpickle.encode(self.completed_dict['container_environments'])))
@@ -438,7 +437,7 @@ class Backend:
 
             if delete_container:
                 updated_container_environment_name = f'DELETE_{container_environment.name}'
-                action = 'DELETE CONTAINER'
+                action = 'DELETE ENVIRONMENT'
             else:
                 updated_container_environment_name = container_environment.name if container_environment else None
 
@@ -486,7 +485,8 @@ class Backend:
                             parsed_aiw_size,
                             container_environment.name if container_environment else None,
                             f'{container_environment.dimensions}' if container_environment else None,
-                            action))
+                            action,
+                            plant.harvest_amount if plant else 0))
             conn.commit()
         except sqlite3.Error as e:
             print(f"Database error: {e}")
@@ -566,7 +566,6 @@ class Backend:
     def get_available_containers(self):
         return list(self.completed_dict['container_environments'].keys())
 
-    @static
     def send_email_notification(self, email_address):
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
