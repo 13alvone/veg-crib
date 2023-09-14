@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from datetime import datetime, timedelta, date
 import math
+import time
 
 from veg_crib_manage import Backend, ContainerEnvironment, Plant
 
@@ -11,18 +12,47 @@ backend = Backend()
 
 @app.route('/')
 def index():
-    # Clear any existing flash messages
     session.pop('_flashes', None)
+    backend.load_from_database()
     return render_template('index.html')
+
+
+@app.route('/chemical_table')
+def chemical_table():
+    session.pop('_flashes', None)
+    backend.load_from_database()
+    chemical_names = backend.get_chemical_names()
+    plant_data = {}
+    for _, plant in backend.completed_dict['plants'].items():
+        plant_data[plant.name] = plant.get_current_week_ml_values()
+        plant_data[plant.name]['current_week'] = plant.calculate_week_count()
+    return render_template('chemical_table.html', chemical_names=chemical_names, plant_data=plant_data,
+                           time_now=int(time.time()))
+
+
+@app.route('/save_chemical_data', methods=['POST'])
+def save_chemical_data():
+    session.pop('_flashes', None)
+    backend.load_from_database()
+    data = request.json
+    for plant_id, values in data.items():
+        for chemical, ml_value in values['chemicals'].items():
+            gallons = values['gallons']
+            # Save to SQLite database
+            backend.save_chemical_values(plant_id, chemical, ml_value, gallons)
+    return jsonify({"status": "success"})
 
 
 @app.route('/global_settings', methods=['GET'])
 def global_settings():
+    session.pop('_flashes', None)
+    backend.load_from_database()
     return render_template('global_settings.html')
 
 @app.route('/update_global_settings', methods=['POST'])
 def update_global_settings():
-    global backend
+    session.pop('_flashes', None)
+    backend.load_from_database()
     water_day = request.form.get('globalWaterDay')
     water_period = int(request.form.get('globalWaterPeriod', 7))  # Default to 7 if not provided
 
@@ -32,6 +62,8 @@ def update_global_settings():
 
 @app.route('/enter_water_day_values', methods=['GET'])
 def enter_water_day_values():
+    session.pop('_flashes', None)
+    backend.load_from_database()
     week_monday_date = calculate_week_monday_date()  # Implement this function
     plants = get_all_plants_with_chemicals()  # Implement this function
     return render_template('enter_water_day_values.html', week_monday_date=week_monday_date, plants=plants)
@@ -39,6 +71,8 @@ def enter_water_day_values():
 
 @app.route('/submit_water_day_values', methods=['POST'])
 def submit_water_day_values():
+    session.pop('_flashes', None)
+    backend.load_from_database()
     for plant in get_all_plants_with_chemicals():  # Implement this function
         actual_value = request.form.get(f"actualValue_{plant.id}_{plant.chemical_name}")
         if actual_value:
@@ -47,6 +81,8 @@ def submit_water_day_values():
 
 @app.route('/record_chemical_usage', methods=['POST'])
 def record_chemical_usage():
+    session.pop('_flashes', None)
+    backend.load_from_database()
     plant_id = request.form.get('plantId')
     week_number = calculate_current_week_number()  # Implement this function
     chemical_name = request.form.get('chemicalName')
@@ -56,6 +92,8 @@ def record_chemical_usage():
 
 @app.route('/check_email_credentials', methods=['GET'])
 def check_email_credentials():
+    session.pop('_flashes', None)
+    backend.load_from_database()
     missing = backend.check_email_credentials()
     show_alert = backend.check_show_alert()
     return jsonify({'missing': missing, 'show_alert': show_alert})
@@ -65,6 +103,7 @@ def check_email_credentials():
 def add_environment():
     # Clear any existing flash messages
     session.pop('_flashes', None)
+    backend.load_from_database()
     if request.method == 'POST':
         x_dim = int(request.form['x_dim'])
         y_dim = int(request.form['y_dim'])
@@ -218,6 +257,7 @@ def move_plant(plant_id):
 
 @app.route('/chemical_schedule')
 def chemical_schedule():
+    session.pop('_flashes', None)
     backend.load_from_database()
     current_week_schedule = backend.get_current_week_chemical_schedule()
     return render_template('chemical_schedule.html', current_week_schedule=current_week_schedule)

@@ -149,13 +149,22 @@ class Plant:
         self.container = PlantContainer(self, "3x5", self.environment)
         self.fully_complete = True
 
+    def get_current_week_ml_values(self):
+        return self.get_chemical_schedule_for_week(self.calculate_week_count())
+
+    def save_chemical_values(self, plant_id, chemical, ml_value, gallons):
+        cursor.execute('''
+            INSERT OR REPLACE INTO chemical_values (plant_id, chemical_name, ml_value, gallons)
+            VALUES (?, ?, ?, ?)''', (plant_id, chemical, ml_value, gallons))
+        conn.commit()
+
     def calculate_next_water_day(self):
         """Calculate the next water day based on the water period."""
         self.water_day += timedelta(days=self.water_period)
 
     def calculate_week_count(self):
         today = date.today()
-        return abs(today - datetime.strptime(self.birth_date, '%Y-%m-%d').date()).days // 7
+        return abs(today - self.birth_date).days // 7
 
     def update_environment(self, _environment_obj):
         self.environment = _environment_obj
@@ -230,12 +239,22 @@ class ContainerEnvironment:
 
 class Backend:
     def __init__(self, db_path="database/veg_crib.db"):
+        global chemicals
         self.db_path = db_path
         self.completed_dict = completed_dict
         self.initialize_database()
         self.alerts_enabled = True
         self.last_visit_date = None
         self.visit_count = 0
+        self.chemicals = chemicals
+
+    def get_chemical_names(self):
+        return list(self.chemicals.keys())
+
+    # def get_current_week_ml_values(self, plant_id):
+    #     plant = self.get_plant_by_id(plant_id)
+    #     week_count = self.calculate_week_count(plant.birth_date)
+    #     return self.get_chemical_schedule_for_week(week_count)
 
     def check_show_alert(self):
         today = datetime.now().date()
@@ -250,6 +269,8 @@ class Backend:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS chemical_values (plant_id INTEGER, chemical_name TEXT, 
+                              ml_value REAL, gallons INTEGER, PRIMARY KEY (plant_id, chemical_name))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS plant_history
                               (event_epoch REAL, name TEXT, harvest_type TEXT, environment_name TEXT, 
                               environment_max_size NUMBER, environment_grid TEXT, grow_type TEXT, thc REAL, 
@@ -281,6 +302,20 @@ class Backend:
             if conn:
                 conn.close()
 
+    def save_chemical_values(self, plant_id, chemical, ml_value, gallons):
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            sql_query = '''
+                INSERT OR REPLACE INTO chemical_values (plant_id, chemical_name, ml_value, gallons)
+                VALUES (?, ?, ?, ?)'''
+            cursor.execute(sql_query, (plant_id, chemical, ml_value, gallons))
+            conn.commit()
+
+        except Exception as e:
+            print(f"An error occurred while saving chemical values: {e}")
+            conn.rollback()
+
     def update_database(self):
         conn = None
         try:
@@ -307,8 +342,6 @@ class Backend:
             """Fetch the chemical schedule for all weeks, applying any overrides."""
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
-            # Initialize the chemical_schedule dictionary week count
             max_week_number = 52  # Assuming a maximum of 52 weeks in a year
 
             # Fetch the base chemical schedule for all weeks

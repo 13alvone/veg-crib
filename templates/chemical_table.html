@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Chemical Table</title>
+</head>
+<body>
+    <table id="chemicalTable" border="1">
+        <thead>
+            <tr>
+                <th>Plant Name</th>
+                {% for name in chemical_names %}
+                    <th>{{ name }}</th>
+                {% endfor %}
+                <th>Current Week</th>
+                <th>Gallons</th>
+                <th>Water Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plant_name, values in plant_data.items() %}
+                <tr>
+                    <td>{{ plant_name }}</td>
+                    {% for _, ml_value in values.items() %}
+                        <td contenteditable="true">{{ ml_value }}</td>
+                    {% endfor %}
+                    <td contenteditable="true">4</td>
+                    <td contenteditable="true">{{ time_now }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button id="saveBtn">Save</button>
+
+    <script>
+        document.getElementById("saveBtn").addEventListener("click", function() {
+            let confirmation = confirm("Are you sure you want to save these values?");
+            if (confirmation) {
+                let table = document.getElementById("chemicalTable");
+                let data = {};
+                for (let row of table.rows) {
+                    if (row.rowIndex === 0) continue;  // Skip header row
+                    let plant_id = row.cells[0].innerText;
+                    let chemicals = {};
+                    for (let i = 1; i < row.cells.length - 1; i++) {
+                        let chemical_name = table.rows[0].cells[i].innerText;
+                        chemicals[chemical_name] = parseFloat(row.cells[i].innerText);
+                    }
+                    let gallons = parseFloat(row.cells[row.cells.length - 1].innerText);
+                    data[plant_id] = { "chemicals": chemicals, "gallons": gallons };
+                }
+                // AJAX call to save data to the database
+                fetch('/save_chemical_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        alert("Data saved successfully.");
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
