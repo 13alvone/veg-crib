@@ -49,6 +49,7 @@ def global_settings():
     backend.load_from_database()
     return render_template('global_settings.html')
 
+
 @app.route('/update_global_settings', methods=['POST'])
 def update_global_settings():
     session.pop('_flashes', None)
@@ -58,15 +59,6 @@ def update_global_settings():
 
     # Convert water_day to datetime object
     water_day = datetime.strptime(water_day, '%Y-%m-%d')
-
-
-@app.route('/enter_water_day_values', methods=['GET'])
-def enter_water_day_values():
-    session.pop('_flashes', None)
-    backend.load_from_database()
-    week_monday_date = calculate_week_monday_date()  # Implement this function
-    plants = get_all_plants_with_chemicals()  # Implement this function
-    return render_template('enter_water_day_values.html', week_monday_date=week_monday_date, plants=plants)
 
 
 @app.route('/submit_water_day_values', methods=['POST'])
@@ -222,7 +214,7 @@ def delete_plant():
     plant_id = request.form.get('plantId')
     harvest_amount = float(request.form.get('harvestAmount'))  # Type validation
     backend.delete_plant(plant_id, harvest_amount)
-    return render_template(url_for('index'))
+    return redirect(url_for('index'))
 
 
 @app.route('/delete_environment/<environment_name>', methods=['POST'])

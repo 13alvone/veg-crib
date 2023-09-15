@@ -280,9 +280,6 @@ class Backend:
             cursor.execute('''CREATE TABLE IF NOT EXISTS chemical_schedule_override 
                               (id INTEGER PRIMARY KEY AUTOINCREMENT, week_number INTEGER, chemical_name TEXT, 
                               override_value REAL)''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS actual_chemical_usage
-                              (id INTEGER PRIMARY KEY AUTOINCREMENT, plant_id INTEGER, week_number INTEGER, 
-                              chemical_name TEXT, actual_value REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS completed_dict
                               (last_updated REAL, chemicals TEXT, plants TEXT, container_environments TEXT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS email_credentials
