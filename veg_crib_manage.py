@@ -104,6 +104,8 @@ def generate_new_id():
 
 
 def date_to_epoch(date_or_datetime):
+    if isinstance(date_or_datetime, float):
+        return date_or_datetime
     if not isinstance(date_or_datetime, (date, datetime)):
         raise TypeError("Input must be a date or datetime object.")
     if isinstance(date_or_datetime, date) and not isinstance(date_or_datetime, datetime):
@@ -151,12 +153,6 @@ class Plant:
 
     def get_current_week_ml_values(self):
         return self.get_chemical_schedule_for_week(self.calculate_week_count())
-
-    def save_chemical_values(self, plant_id, chemical, ml_value, gallons):
-        cursor.execute('''
-            INSERT OR REPLACE INTO chemical_values (plant_id, chemical_name, ml_value, gallons)
-            VALUES (?, ?, ?, ?)''', (plant_id, chemical, ml_value, gallons))
-        conn.commit()
 
     def calculate_next_water_day(self):
         """Calculate the next water day based on the water period."""
@@ -251,11 +247,6 @@ class Backend:
     def get_chemical_names(self):
         return list(self.chemicals.keys())
 
-    # def get_current_week_ml_values(self, plant_id):
-    #     plant = self.get_plant_by_id(plant_id)
-    #     week_count = self.calculate_week_count(plant.birth_date)
-    #     return self.get_chemical_schedule_for_week(week_count)
-
     def check_show_alert(self):
         today = datetime.now().date()
         if self.last_visit_date != today:
@@ -269,8 +260,9 @@ class Backend:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute('''CREATE TABLE IF NOT EXISTS chemical_values (plant_id INTEGER, chemical_name TEXT, 
-                              ml_value REAL, gallons INTEGER, PRIMARY KEY (plant_id, chemical_name))''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS chemical_values (event_epoch REAL, plant_id INTEGER, 
+                              chemical_name TEXT, ml_value REAL, gallons INTEGER, 
+                              PRIMARY KEY (plant_id, chemical_name, event_epoch))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS plant_history
                               (event_epoch REAL, name TEXT, harvest_type TEXT, environment_name TEXT, 
                               environment_max_size NUMBER, environment_grid TEXT, grow_type TEXT, thc REAL, 
@@ -299,14 +291,15 @@ class Backend:
             if conn:
                 conn.close()
 
-    def save_chemical_values(self, plant_id, chemical, ml_value, gallons):
+    def save_chemical_values(self, plant_id, chemical, ml_value, gallons, event_epoch=time.time()):
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             sql_query = '''
-                INSERT OR REPLACE INTO chemical_values (plant_id, chemical_name, ml_value, gallons)
-                VALUES (?, ?, ?, ?)'''
-            cursor.execute(sql_query, (plant_id, chemical, ml_value, gallons))
+                INSERT INTO chemical_values (event_epoch, plant_id, chemical_name, ml_value, gallons)
+                VALUES (?, ?, ?, ?, ?)'''
+            cursor.execute(sql_query, (event_epoch, plant_id, chemical, ml_value, gallons))
             conn.commit()
 
         except Exception as e:
@@ -445,9 +438,15 @@ class Backend:
                 conn.close()
                 return count == 0
 
-    def record_history(self, action='', plant=None, container_environment=None, chemical=None,
+    def record_history(self, action='', plant=None, container_environment=None, chemical=None, ingest_epoch=time.time(),
                        delete_plant=False, delete_container=False):
         conn = None
+        try:
+            ingest_epoch = float(ingest_epoch)
+            if not isinstance(ingest_epoch, float):
+                print(f'[!] record_history() failed: Incorrect type being passed to it. ({type(ingest_epoch)} passed)')
+        except Exception as e:
+            print(f'[!] record_history() failed: python details `{e}`')
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -457,9 +456,6 @@ class Backend:
                 container_environment = plant.environment
             elif not plant and container_environment:
                 pass
-                # Stub for future use: For each plant in environment, we could run 'record_history()'
-                # but currently unclear of what action that would represent, and it doesn't happen in the code
-                # explicitly... yet.'
 
             plant_name_with_birth_date = f"{plant.name}_{date_to_epoch(plant.birth_date)}" if plant else None
             parsed_ce_max_size = None
@@ -473,7 +469,7 @@ class Backend:
 
             if delete_plant:
                 updated_plant_name = f'DELETE_{plant_name_with_birth_date}'
-                action = 'DELETE PLANT'
+                action = 'HARVEST PLANT'
             else:
                 updated_plant_name = plant_name_with_birth_date if plant else None
 
@@ -497,7 +493,7 @@ class Backend:
                               low_cure_date, mid_cure_date, high_cure_date, age_in_weeks, container_name, 
                               container_dimensions, action, harvest_amount) 
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                           (time.time(),
+                           (ingest_epoch,
                             updated_plant_name,
                             plant.harvest_type if plant else None,
                             updated_container_environment_name,
@@ -532,7 +528,7 @@ class Backend:
         self.update_database()
         self.record_history(plant=plant, action='CREATE PLANT')
 
-    def delete_plant(self, plant_id, _harvest_amount):
+    def delete_plant(self, plant_id, _harvest_amount, event_epoch=time.time()):
         plant = self.completed_dict['plants'].get(int(plant_id))
         plant = self.completed_dict['plants'].get(plant_id) if not plant else plant
         plant.harvest_amount = _harvest_amount
@@ -544,8 +540,9 @@ class Backend:
             src_container_environment.remove_container(int(plant_id))
             del self.completed_dict['plants'][plant_id]
             self.update_database()
-            self.record_history(plant=plant, delete_plant=True)
-            self.record_history(container_environment=src_container_environment, action='REMOVE PLANT')
+            self.record_history(plant=plant, delete_plant=True, ingest_epoch=event_epoch)
+            self.record_history(container_environment=src_container_environment, action='DELETE PLANT',
+                                ingest_epoch=event_epoch)
             return True
         return False
 
@@ -563,7 +560,7 @@ class Backend:
                 return False
         return False
 
-    def move_plant(self, plant_id, new_container_env_name):
+    def move_plant(self, plant_id, new_container_env_name, event_time=time.time()):
         plant = self.completed_dict['plants'].get(int(plant_id))
         plant = self.completed_dict['plants'].get(plant_id) if not plant else plant
         src_container_environment = self.completed_dict['container_environments'].get(plant.environment.name)
@@ -573,21 +570,20 @@ class Backend:
             if src_container_environment.remove_container(plant.id):
                 plant.update_environment(None)
                 self.update_database()
-                self.record_history(plant=plant, action='MOVE PLANT (REMOVE)')
+                self.record_history(plant=plant, action='MOVE PLANT (REMOVE)', ingest_epoch=event_time)
                 # Try to add the plant's container to the new environment's grid
                 if dest_container_environment.add_container(plant):
                     # Update the plant's environment
                     plant.update_environment(dest_container_environment)
                     self.update_database()
-                    self.record_history(plant=plant, action='MOVE PLANT (ADD)')
+                    self.record_history(plant=plant, action='MOVE PLANT (ADD)', ingest_epoch=event_time)
                     return True
                 else:
                     # If adding to the new environment fails, add it back to the old environment
                     src_container_environment.add_container(plant)
                     plant.update_environment(src_container_environment)
                     self.update_database()
-                    self.record_history(plant=plant)
-                    self.record_history(plant=plant, action='MOVE PLANT FAILED (PUTTING BACK)')
+                    self.record_history(plant=plant, action='MOVE FAILED (PUTTING BACK)', ingest_epoch=event_time)
                     return False
             else:
                 return False  # Failed to remove from old environment
