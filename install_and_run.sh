@@ -9,20 +9,35 @@ handle_error() {
 # Trap errors
 trap 'handle_error $LINENO "$BASH_COMMAND"' ERR
 
-# Check if Homebrew is installed
-if ! command -v brew &> /dev/null; then
-  echo "Homebrew is not installed. Installing Homebrew..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || handle_error $LINENO "Failed to install Homebrew."
+# Detect operating system
+OS_TYPE=1 # Default to Linux
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "macOS detected."
+  OS_TYPE=0 # macOS
+else
+  echo "Assuming Linux."
 fi
 
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-  echo "Docker is not installed. Installing Docker via Homebrew..."
-  brew install --cask docker || handle_error $LINENO "Failed to install Docker."
+# Install Homebrew on macOS or Docker on Linux if they're not installed
+if [ $OS_TYPE -eq 0 ]; then
+  if ! command -v brew &> /dev/null; then
+    echo "Homebrew is not installed. Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || handle_error $LINENO "Failed to install Homebrew."
+  fi
+  if ! command -v docker &> /dev/null; then
+    echo "Docker is not installed. Installing Docker via Homebrew..."
+    brew install --cask docker || handle_error $LINENO "Failed to install Docker."
+  fi
+else
+  if ! command -v docker &> /dev/null; then
+    echo "Docker is not installed. Installing Docker..."
+    sudo apt-get update
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io || handle_error $LINENO "Failed to install Docker."
+  fi
 fi
 
 # Check if Docker daemon is running
-docker info >/dev/null 2>&1
+docker info >/dev/null 2>&1 || true
 if [[ $? -ne 0 ]]; then
   handle_error $LINENO "Docker daemon is not running. Please start Docker and try again."
 fi
